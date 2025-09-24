@@ -71,6 +71,7 @@ export interface CalculationInputs {
   unpackLoose?: boolean;
   unpackPalletized?: boolean;
   fumigationSurcharge?: boolean;
+  sideloaderSamedayCollection?: boolean;
 }
 
 export interface LineItem {
@@ -159,4 +160,5 @@ export interface FilterParams {
   unpack_loose?: boolean;
   unpack_palletized?: boolean;
   fumigation_surcharge?: boolean;
+  sideloader_sameday_collection?: boolean;
 }

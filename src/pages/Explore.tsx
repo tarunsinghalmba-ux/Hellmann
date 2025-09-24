@@ -113,6 +113,9 @@ export default function Explore() {
           if (filters.fumigation_surcharge === true) {
             query = query.not('fumigation_bmsb', 'is', null);
           }
+          if (filters.sideloader_sameday_collection === true) {
+            query = query.not('sideloader_same_day_collection', 'is', null);
+          }
           if (filters.validity_start) query = query.gte('valid_until', filters.validity_start);
           if (filters.validity_end) query = query.lte('effective_date', filters.validity_end);
           return query.limit(500);
@@ -132,7 +135,8 @@ export default function Explore() {
           const unpackLooseCharge = filters.unpack_loose ? (parseFloat(item.container_unpack_rate_loose) || 0) : 0;
           const unpackPalletizedCharge = filters.unpack_palletized ? (parseFloat(item.container_unpack_rate_palletized) || 0) : 0;
           const fumigationCharge = filters.fumigation_surcharge ? (parseFloat(item.fumigation_bmsb) || 0) : 0;
-          const totalRate = baseRate + dropTrailerCharge + heavyWeightCharge + tailgateCharge + sideLoaderCharge + unpackLooseCharge + unpackPalletizedCharge + fumigationCharge;
+          const sideloaderSamedayCharge = filters.sideloader_sameday_collection ? (parseFloat(item.sideloader_same_day_collection) || 0) : 0;
+          const totalRate = baseRate + dropTrailerCharge + heavyWeightCharge + tailgateCharge + sideLoaderCharge + unpackLooseCharge + unpackPalletizedCharge + fumigationCharge + sideloaderSamedayCharge;
         
           combinedData.push({
             id: item.id,
@@ -155,7 +159,8 @@ export default function Explore() {
               sideLoaderCharge > 0 ? `Side Loader: ${item.currency} ${sideLoaderCharge.toFixed(2)}` : null,
               unpackLooseCharge > 0 ? `Unpack Loose: ${item.currency} ${unpackLooseCharge.toFixed(2)}` : null,
               unpackPalletizedCharge > 0 ? `Unpack Palletized: ${item.currency} ${unpackPalletizedCharge.toFixed(2)}` : null,
-              fumigationCharge > 0 ? `Fumigation: ${item.currency} ${fumigationCharge.toFixed(2)}` : null
+              fumigationCharge > 0 ? `Fumigation: ${item.currency} ${fumigationCharge.toFixed(2)}` : null,
+              sideloaderSamedayCharge > 0 ? `Sideloader Sameday: ${item.currency} ${sideloaderSamedayCharge.toFixed(2)}` : null
             ].filter(Boolean).join(' | ') || undefined
           });
         });
