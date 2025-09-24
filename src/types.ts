@@ -70,7 +70,6 @@ export interface CalculationInputs {
   sideLoaderAccessFees?: boolean;
   unpackLoose?: boolean;
   unpackPalletized?: boolean;
-  weekendDeliverySurcharge?: boolean;
 }
 
 export interface LineItem {
@@ -158,5 +157,4 @@ export interface FilterParams {
   side_loader_access_fees?: boolean;
   unpack_loose?: boolean;
   unpack_palletized?: boolean;
-  weekend_delivery_surcharge?: boolean;
 }
