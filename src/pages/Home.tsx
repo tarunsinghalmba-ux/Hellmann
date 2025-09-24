@@ -22,7 +22,6 @@ const initialInputs: CalculationInputs = {
   heavyWeightSurcharge: false,
   viaTailgate: false,
   sideLoaderAccessFees: false
-  unpackPalletized: false
 };
 
 export default function Home() {
@@ -58,8 +57,7 @@ export default function Home() {
         heavyWeightSurcharge: inputs.heavyWeightSurcharge,
         viaTailgate: inputs.viaTailgate,
         sideLoaderAccessFees: inputs.sideLoaderAccessFees,
-        unpackLoose: inputs.unpackLoose,
-        unpackPalletized: inputs.unpackPalletized
+        unpackLoose: inputs.unpackLoose
       };
       
       const calculationResults = await calculateThreeParts(calcInput, setSqlQueries);

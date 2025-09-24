@@ -69,7 +69,6 @@ export interface CalculationInputs {
   viaTailgate?: boolean;
   sideLoaderAccessFees?: boolean;
   unpackLoose?: boolean;
-  unpackPalletized?: boolean;
 }
 
 export interface LineItem {
@@ -156,5 +155,4 @@ export interface FilterParams {
   via_tailgate?: boolean;
   side_loader_access_fees?: boolean;
   unpack_loose?: boolean;
-  unpack_palletized?: boolean;
 }

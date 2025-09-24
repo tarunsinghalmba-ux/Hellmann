@@ -24,7 +24,6 @@ export interface CalcInput {
   viaTailgate?: boolean; // via tailgate filter
   sideLoaderAccessFees?: boolean; // side loader access fees filter
 }
-  unpackPalletized?: boolean; // unpack palletized filter
 
 export interface LineItem { 
   label: string; 
@@ -329,8 +328,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const vehicleTypeFilter = input.vehicleType ? ` AND UPPER("vehicle_type") = UPPER('${input.vehicleType}')` : '';
     const transportVendorFilter = input.transportVendor ? ` AND UPPER("transport_vendor") = UPPER('${input.transportVendor}')` : '';
     const transportQuery = direction === 'import' 
-      ? `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("delivery_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter} LIMIT 200`
-      : `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("pick_up_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter} LIMIT 200`;
+      ? `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("delivery_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter} LIMIT 200`
+      : `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("pick_up_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter} LIMIT 200`;
     queries.push(transportQuery);
     
     console.log('=== TRANSPORT QUERY ===');
@@ -338,7 +337,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     
     const { data: transport } = await selectWithFallback(TABLE_KEYS.transport, (q) => {
       let base = q
-        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized')
+        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose')
         .ilike('direction', direction)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
@@ -387,13 +386,10 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       // Calculate unpack loose charge if unpack loose is selected
       const unpackLooseCharge = input.unpackLoose ? (parseFloat(r.container_unpack_rate_loose) || 0) : 0;
       
-      // Calculate unpack palletized charge if unpack palletized is selected
-      const unpackPalletizedCharge = input.unpackPalletized ? (parseFloat(r.container_unpack_rate_palletized) || 0) : 0;
-      
       // 20GP transport
       if (qty20 > 0) {
         const baseRate = parseFloat(r['20gp']) || 0;
-        const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge;
+        const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge;
         if (rate > 0) {
           const total = rate * qty20;
           const additionalCharges = [];
@@ -403,7 +399,6 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           if (tailgateCharge > 0) additionalCharges.push(`Tailgate: ${tailgateCharge.toFixed(2)}`);
           if (sideLoaderAccessFees > 0) additionalCharges.push(`Side Loader: ${sideLoaderAccessFees.toFixed(2)}`);
           if (unpackLooseCharge > 0) additionalCharges.push(`Unpack Loose: ${unpackLooseCharge.toFixed(2)}`);
-          if (unpackPalletizedCharge > 0) additionalCharges.push(`Unpack Palletized: ${unpackPalletizedCharge.toFixed(2)}`);
           const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
           delItems.push({
             label: `${baseLabel} (20GP${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
@@ -419,7 +414,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       // 40GP transport
       if (qty40 > 0) {
         const baseRate = parseFloat(r['40gp_40hc']) || 0;
-        const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge;
+        const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge;
         if (rate > 0) {
           const total = rate * qty40;
           const additionalCharges = [];
@@ -429,7 +424,6 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           if (tailgateCharge > 0) additionalCharges.push(`Tailgate: ${tailgateCharge.toFixed(2)}`);
           if (sideLoaderAccessFees > 0) additionalCharges.push(`Side Loader: ${sideLoaderAccessFees.toFixed(2)}`);
           if (unpackLooseCharge > 0) additionalCharges.push(`Unpack Loose: ${unpackLooseCharge.toFixed(2)}`);
-          if (unpackPalletizedCharge > 0) additionalCharges.push(`Unpack Palletized: ${unpackPalletizedCharge.toFixed(2)}`);
           const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
           delItems.push({
             label: `${baseLabel} (40GP${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
@@ -445,7 +439,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       // 40HC transport
       if (qty40HC > 0) {
         const baseRate = parseFloat(r['40gp_40hc']) || 0;
-        const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge;
+        const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge;
         if (rate > 0) {
           const total = rate * qty40HC;
           const additionalCharges = [];
@@ -455,7 +449,6 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           if (tailgateCharge > 0) additionalCharges.push(`Tailgate: ${tailgateCharge.toFixed(2)}`);
           if (sideLoaderAccessFees > 0) additionalCharges.push(`Side Loader: ${sideLoaderAccessFees.toFixed(2)}`);
           if (unpackLooseCharge > 0) additionalCharges.push(`Unpack Loose: ${unpackLooseCharge.toFixed(2)}`);
-          if (unpackPalletizedCharge > 0) additionalCharges.push(`Unpack Palletized: ${unpackPalletizedCharge.toFixed(2)}`);
           const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
           delItems.push({
             label: `${baseLabel} (40HC${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
@@ -473,7 +466,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         // Check if there's a cubic rate for LCL transport
         const cubicRate = parseFloat(r.cubic_rate) || 0;
         if (cubicRate > 0) {
-          const rate = cubicRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge;
+          const rate = cubicRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge;
           const total = cubicRate * lclCbm;
           const additionalCharges = [];
           if (dgSurcharge > 0) additionalCharges.push(`DG: ${dgSurcharge.toFixed(2)}`);
@@ -482,7 +475,6 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           if (tailgateCharge > 0) additionalCharges.push(`Tailgate: ${tailgateCharge.toFixed(2)}`);
           if (sideLoaderAccessFees > 0) additionalCharges.push(`Side Loader: ${sideLoaderAccessFees.toFixed(2)}`);
           if (unpackLooseCharge > 0) additionalCharges.push(`Unpack Loose: ${unpackLooseCharge.toFixed(2)}`);
-          if (unpackPalletizedCharge > 0) additionalCharges.push(`Unpack Palletized: ${unpackPalletizedCharge.toFixed(2)}`);
           const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
           delItems.push({
             label: `${baseLabel} (LCL${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
@@ -495,7 +487,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         } else {
           // Fallback: treat LCL as 1 container for transport
           const baseRate = parseFloat(r['20gp']) || 0;
-          const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge;
+          const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge;
           if (rate > 0) {
             const additionalCharges = [];
             if (dgSurcharge > 0) additionalCharges.push(`DG: ${dgSurcharge.toFixed(2)}`);
@@ -504,7 +496,6 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             if (tailgateCharge > 0) additionalCharges.push(`Tailgate: ${tailgateCharge.toFixed(2)}`);
             if (sideLoaderAccessFees > 0) additionalCharges.push(`Side Loader: ${sideLoaderAccessFees.toFixed(2)}`);
             if (unpackLooseCharge > 0) additionalCharges.push(`Unpack Loose: ${unpackLooseCharge.toFixed(2)}`);
-            if (unpackPalletizedCharge > 0) additionalCharges.push(`Unpack Palletized: ${unpackPalletizedCharge.toFixed(2)}`);
             const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
             delItems.push({
               label: `${baseLabel} (LCL${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
