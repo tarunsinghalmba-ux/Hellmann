@@ -59,7 +59,7 @@ export default function Home() {
         viaTailgate: inputs.viaTailgate,
         sideLoaderAccessFees: inputs.sideLoaderAccessFees,
         unpackLoose: inputs.unpackLoose,
-        unpackPalletized: inputs.unpackPalletized
+        unpackPalletized: inputs.unpackPalletized,
         fumigationSurcharge: inputs.fumigationSurcharge
       };
       
