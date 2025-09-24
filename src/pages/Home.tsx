@@ -19,7 +19,8 @@ const initialInputs: CalculationInputs = {
   lclCbm: 0,
   dangerousGoods: false,
   dropTrailer: false,
-  heavyWeightSurcharge: false
+  heavyWeightSurcharge: false,
+  viaTailgate: false
 };
 
 export default function Home() {
@@ -52,7 +53,8 @@ export default function Home() {
         transportVendor: inputs.transportVendor,
         dangerousGoods: inputs.dangerousGoods,
         dropTrailer: inputs.dropTrailer,
-        heavyWeightSurcharge: inputs.heavyWeightSurcharge
+        heavyWeightSurcharge: inputs.heavyWeightSurcharge,
+        viaTailgate: inputs.viaTailgate
       };
       
       const calculationResults = await calculateThreeParts(calcInput, setSqlQueries);

@@ -416,6 +416,18 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
             <span className="text-sm font-medium text-gray-700">Heavy Weight Surcharge</span>
           </label>
         </div>
+
+        <div className="flex items-center">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={inputs.viaTailgate || false}
+              onChange={(e) => handleChange('viaTailgate', e.target.checked)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Via Tailgate</span>
+          </label>
+        </div>
       </div>
 
       <div>

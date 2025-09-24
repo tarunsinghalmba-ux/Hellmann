@@ -66,6 +66,7 @@ export interface CalculationInputs {
   dangerousGoods?: boolean;
   dropTrailer?: boolean;
   heavyWeightSurcharge?: boolean;
+  viaTailgate?: boolean;
 }
 
 export interface LineItem {
@@ -149,4 +150,5 @@ export interface FilterParams {
   dangerous_goods?: boolean;
   drop_trailer?: boolean;
   heavy_weight_surcharge?: boolean;
+  via_tailgate?: boolean;
 }

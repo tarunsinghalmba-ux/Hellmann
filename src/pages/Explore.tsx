@@ -98,6 +98,9 @@ export default function Explore() {
           if (filters.heavy_weight_surcharge === true) {
             query = query.not('heavy_weight_surcharge', 'is', null);
           }
+          if (filters.via_tailgate === true) {
+            query = query.not('tail_gate', 'is', null);
+          }
           if (filters.validity_start) query = query.gte('valid_until', filters.validity_start);
           if (filters.validity_end) query = query.lte('effective_date', filters.validity_end);
           return query.limit(500);
@@ -112,7 +115,8 @@ export default function Explore() {
           const baseRate = parseFloat(item['20gp']) || 0;
           const dropTrailerCharge = filters.drop_trailer ? (parseFloat(item.drop_trailer) || 0) : 0;
           const heavyWeightCharge = filters.heavy_weight_surcharge ? (parseFloat(item.heavy_weight_surcharge) || 0) : 0;
-          const totalRate = baseRate + dropTrailerCharge + heavyWeightCharge;
+          const tailgateCharge = filters.via_tailgate ? (parseFloat(item.tail_gate) || 0) : 0;
+          const totalRate = baseRate + dropTrailerCharge + heavyWeightCharge + tailgateCharge;
         
           combinedData.push({
             id: item.id,
@@ -130,7 +134,8 @@ export default function Explore() {
             notes: [
               item.terms_and_conditions ? `Terms: ${item.terms_and_conditions}` : null,
               dropTrailerCharge > 0 ? `Drop Trailer: ${item.currency} ${dropTrailerCharge.toFixed(2)}` : null,
-              heavyWeightCharge > 0 ? `Heavy Weight: ${item.currency} ${heavyWeightCharge.toFixed(2)}` : null
+              heavyWeightCharge > 0 ? `Heavy Weight: ${item.currency} ${heavyWeightCharge.toFixed(2)}` : null,
+              tailgateCharge > 0 ? `Tailgate: ${item.currency} ${tailgateCharge.toFixed(2)}` : null
             ].filter(Boolean).join(' | ') || undefined
           });
         });
