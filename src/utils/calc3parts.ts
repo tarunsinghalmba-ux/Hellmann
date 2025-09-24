@@ -23,8 +23,8 @@ export interface CalcInput {
   heavyWeightSurcharge?: boolean; // heavy weight surcharge filter
   viaTailgate?: boolean; // via tailgate filter
   sideLoaderAccessFees?: boolean; // side loader access fees filter
-}
   unpackPalletized?: boolean; // unpack palletized filter
+}
 
 export interface LineItem { 
   label: string; 
