@@ -51,7 +51,6 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
                       <tr key={idx} className="border-b border-gray-100">
                         <td className="py-2 pr-4">
                           {i.label}
-                          {i.extra ? <span className="ml-2 text-xs text-gray-400">({i.extra})</span> : null}
                         </td>
                         <td className="py-2 pr-4 text-gray-600">{i.unit ?? ''}</td>
                         <td className="py-2 pr-4 text-right">{i.qty}</td>
