@@ -64,6 +64,7 @@ export interface CalculationInputs {
   serviceType?: string;
   transportVendor?: string;
   dangerousGoods?: boolean;
+  dropTrailer?: boolean;
 }
 
 export interface LineItem {
@@ -145,4 +146,5 @@ export interface FilterParams {
   carrier?: string;
   vehicle_type?: string;
   dangerous_goods?: boolean;
+  drop_trailer?: boolean;
 }

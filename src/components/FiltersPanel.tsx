@@ -374,6 +374,18 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
           </label>
         </div>
 
+        <div>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={filters.drop_trailer || false}
+              onChange={(e) => handleBooleanFilterChange('drop_trailer', e.target.checked)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Drop Trailer</span>
+          </label>
+        </div>
+
       </div>
 
       <div className="mt-6 pt-4 border-t border-gray-200">

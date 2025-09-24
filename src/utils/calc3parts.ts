@@ -19,6 +19,7 @@ export interface CalcInput {
   transitTime?: string; // transit time filter
   transportVendor?: string; // transport vendor filter
   dangerousGoods?: boolean; // dangerous goods filter
+  dropTrailer?: boolean; // drop trailer filter
 }
 
 export interface LineItem { 
@@ -333,7 +334,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     
     const { data: transport } = await selectWithFallback(TABLE_KEYS.transport, (q) => {
       let base = q
-        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,currency,dg_surcharge,transport_vendor')
+        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,currency,dg_surcharge,transport_vendor,drop_trailer')
         .ilike('direction', direction)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
@@ -367,15 +368,21 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       // Calculate DG surcharge if dangerous goods are selected
       const dgSurcharge = input.dangerousGoods ? (parseFloat(r.dg_surcharge) || 0) : 0;
       
+      // Calculate drop trailer charge if drop trailer is selected
+      const dropTrailerCharge = input.dropTrailer ? (parseFloat(r.drop_trailer) || 0) : 0;
+      
       // 20GP transport
       if (qty20 > 0) {
         const baseRate = parseFloat(r['20gp']) || 0;
-        const rate = baseRate + dgSurcharge;
+        const rate = baseRate + dgSurcharge + dropTrailerCharge;
         if (rate > 0) {
           const total = rate * qty20;
-          const dgNote = dgSurcharge > 0 ? ` + DG Surcharge: ${dgSurcharge.toFixed(2)}` : '';
+          const additionalCharges = [];
+          if (dgSurcharge > 0) additionalCharges.push(`DG: ${dgSurcharge.toFixed(2)}`);
+          if (dropTrailerCharge > 0) additionalCharges.push(`Drop Trailer: ${dropTrailerCharge.toFixed(2)}`);
+          const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
           delItems.push({
-            label: `${baseLabel} (20GP${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${dgNote})`,
+            label: `${baseLabel} (20GP${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
             unit: 'PER_CONTAINER',
             qty: qty20,
             rate,
@@ -388,12 +395,15 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       // 40GP transport
       if (qty40 > 0) {
         const baseRate = parseFloat(r['40gp_40hc']) || 0;
-        const rate = baseRate + dgSurcharge;
+        const rate = baseRate + dgSurcharge + dropTrailerCharge;
         if (rate > 0) {
           const total = rate * qty40;
-          const dgNote = dgSurcharge > 0 ? ` + DG Surcharge: ${dgSurcharge.toFixed(2)}` : '';
+          const additionalCharges = [];
+          if (dgSurcharge > 0) additionalCharges.push(`DG: ${dgSurcharge.toFixed(2)}`);
+          if (dropTrailerCharge > 0) additionalCharges.push(`Drop Trailer: ${dropTrailerCharge.toFixed(2)}`);
+          const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
           delItems.push({
-            label: `${baseLabel} (40GP${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${dgNote})`,
+            label: `${baseLabel} (40GP${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
             unit: 'PER_CONTAINER',
             qty: qty40,
             rate,
@@ -406,12 +416,15 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       // 40HC transport
       if (qty40HC > 0) {
         const baseRate = parseFloat(r['40gp_40hc']) || 0;
-        const rate = baseRate + dgSurcharge;
+        const rate = baseRate + dgSurcharge + dropTrailerCharge;
         if (rate > 0) {
           const total = rate * qty40HC;
-          const dgNote = dgSurcharge > 0 ? ` + DG Surcharge: ${dgSurcharge.toFixed(2)}` : '';
+          const additionalCharges = [];
+          if (dgSurcharge > 0) additionalCharges.push(`DG: ${dgSurcharge.toFixed(2)}`);
+          if (dropTrailerCharge > 0) additionalCharges.push(`Drop Trailer: ${dropTrailerCharge.toFixed(2)}`);
+          const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
           delItems.push({
-            label: `${baseLabel} (40HC${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${dgNote})`,
+            label: `${baseLabel} (40HC${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
             unit: 'PER_CONTAINER',
             qty: qty40HC,
             rate,
@@ -426,11 +439,14 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         // Check if there's a cubic rate for LCL transport
         const cubicRate = parseFloat(r.cubic_rate) || 0;
         if (cubicRate > 0) {
-          const rate = cubicRate + dgSurcharge;
+          const rate = cubicRate + dgSurcharge + dropTrailerCharge;
           const total = cubicRate * lclCbm;
-          const dgNote = dgSurcharge > 0 ? ` + DG Surcharge: ${dgSurcharge.toFixed(2)}` : '';
+          const additionalCharges = [];
+          if (dgSurcharge > 0) additionalCharges.push(`DG: ${dgSurcharge.toFixed(2)}`);
+          if (dropTrailerCharge > 0) additionalCharges.push(`Drop Trailer: ${dropTrailerCharge.toFixed(2)}`);
+          const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
           delItems.push({
-            label: `${baseLabel} (LCL${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${dgNote})`,
+            label: `${baseLabel} (LCL${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
             unit: 'PER_CBM',
             qty: lclCbm,
             rate,
@@ -440,11 +456,14 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         } else {
           // Fallback: treat LCL as 1 container for transport
           const baseRate = parseFloat(r['20gp']) || 0;
-          const rate = baseRate + dgSurcharge;
+          const rate = baseRate + dgSurcharge + dropTrailerCharge;
           if (rate > 0) {
-            const dgNote = dgSurcharge > 0 ? ` + DG Surcharge: ${dgSurcharge.toFixed(2)}` : '';
+            const additionalCharges = [];
+            if (dgSurcharge > 0) additionalCharges.push(`DG: ${dgSurcharge.toFixed(2)}`);
+            if (dropTrailerCharge > 0) additionalCharges.push(`Drop Trailer: ${dropTrailerCharge.toFixed(2)}`);
+            const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
             delItems.push({
-              label: `${baseLabel} (LCL${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${dgNote})`,
+              label: `${baseLabel} (LCL${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
               unit: 'PER_CONTAINER',
               qty: 1,
               rate,

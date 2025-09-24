@@ -92,6 +92,9 @@ export default function Explore() {
           if (filters.pickup_location) query = query.ilike('pick_up_location', `%${filters.pickup_location}%`);
           if (filters.delivery_location) query = query.ilike('delivery_location', `%${filters.delivery_location}%`);
           if (filters.currency) query = query.eq('currency', filters.currency);
+          if (filters.drop_trailer === true) {
+            query = query.not('drop_trailer', 'is', null);
+          }
           if (filters.validity_start) query = query.gte('valid_until', filters.validity_start);
           if (filters.validity_end) query = query.lte('effective_date', filters.validity_end);
           return query.limit(500);
@@ -101,13 +104,18 @@ export default function Explore() {
           const locationDesc = item.direction === 'import' 
             ? `To ${item.delivery_location || 'Unknown'}`
             : `From ${item.pick_up_location || 'Unknown'}`;
+          
+          // Calculate additional charges
+          const baseRate = parseFloat(item['20gp']) || 0;
+          const dropTrailerCharge = filters.drop_trailer ? (parseFloat(item.drop_trailer) || 0) : 0;
+          const totalRate = baseRate + dropTrailerCharge;
         
           combinedData.push({
             id: item.id,
             source: 'Transport',
             direction: item.direction,
             description: `Transport - ${locationDesc}`,
-            rate: parseFloat(item['20gp']) || 0,
+            rate: totalRate,
             currency: item.currency,
             validity_start: item.effective_date,
             validity_end: item.valid_until,
@@ -115,7 +123,10 @@ export default function Explore() {
             delivery_location: item.delivery_location,
             container_type: '20GP',
             unit: 'PER_CONTAINER',
-            notes: item.terms_and_conditions ? `Terms: ${item.terms_and_conditions}` : undefined
+            notes: [
+              item.terms_and_conditions ? `Terms: ${item.terms_and_conditions}` : null,
+              dropTrailerCharge > 0 ? `Drop Trailer: ${item.currency} ${dropTrailerCharge.toFixed(2)}` : null
+            ].filter(Boolean).join(' | ') || undefined
           });
         });
       } catch (error) {
