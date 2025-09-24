@@ -60,6 +60,7 @@ export default function Home() {
         sideLoaderAccessFees: inputs.sideLoaderAccessFees,
         unpackLoose: inputs.unpackLoose,
         unpackPalletized: inputs.unpackPalletized
+        fumigationSurcharge: inputs.fumigationSurcharge
       };
       
       const calculationResults = await calculateThreeParts(calcInput, setSqlQueries);
@@ -110,6 +111,7 @@ export default function Home() {
       qty40: inputs.qty40,
       qty40HC: inputs.qty40HC,
       lclCbm: inputs.lclCbm
+      fumigationSurcharge: false
     };
     exportPdf3Parts(results, meta);
   };
