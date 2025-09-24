@@ -67,6 +67,7 @@ export interface CalculationInputs {
   dropTrailer?: boolean;
   heavyWeightSurcharge?: boolean;
   viaTailgate?: boolean;
+  sideLoaderAccessFees?: boolean;
 }
 
 export interface LineItem {
@@ -151,4 +152,5 @@ export interface FilterParams {
   drop_trailer?: boolean;
   heavy_weight_surcharge?: boolean;
   via_tailgate?: boolean;
+  side_loader_access_fees?: boolean;
 }

@@ -20,7 +20,8 @@ const initialInputs: CalculationInputs = {
   dangerousGoods: false,
   dropTrailer: false,
   heavyWeightSurcharge: false,
-  viaTailgate: false
+  viaTailgate: false,
+  sideLoaderAccessFees: false
 };
 
 export default function Home() {
@@ -54,7 +55,8 @@ export default function Home() {
         dangerousGoods: inputs.dangerousGoods,
         dropTrailer: inputs.dropTrailer,
         heavyWeightSurcharge: inputs.heavyWeightSurcharge,
-        viaTailgate: inputs.viaTailgate
+        viaTailgate: inputs.viaTailgate,
+        sideLoaderAccessFees: inputs.sideLoaderAccessFees
       };
       
       const calculationResults = await calculateThreeParts(calcInput, setSqlQueries);

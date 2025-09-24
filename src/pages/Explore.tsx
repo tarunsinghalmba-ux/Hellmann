@@ -101,6 +101,9 @@ export default function Explore() {
           if (filters.via_tailgate === true) {
             query = query.not('tail_gate', 'is', null);
           }
+          if (filters.side_loader_access_fees === true) {
+            query = query.not('side_loader_access_fees', 'is', null);
+          }
           if (filters.validity_start) query = query.gte('valid_until', filters.validity_start);
           if (filters.validity_end) query = query.lte('effective_date', filters.validity_end);
           return query.limit(500);
@@ -116,7 +119,8 @@ export default function Explore() {
           const dropTrailerCharge = filters.drop_trailer ? (parseFloat(item.drop_trailer) || 0) : 0;
           const heavyWeightCharge = filters.heavy_weight_surcharge ? (parseFloat(item.heavy_weight_surcharge) || 0) : 0;
           const tailgateCharge = filters.via_tailgate ? (parseFloat(item.tail_gate) || 0) : 0;
-          const totalRate = baseRate + dropTrailerCharge + heavyWeightCharge + tailgateCharge;
+          const sideLoaderCharge = filters.side_loader_access_fees ? (parseFloat(item.side_loader_access_fees) || 0) : 0;
+          const totalRate = baseRate + dropTrailerCharge + heavyWeightCharge + tailgateCharge + sideLoaderCharge;
         
           combinedData.push({
             id: item.id,
@@ -135,7 +139,8 @@ export default function Explore() {
               item.terms_and_conditions ? `Terms: ${item.terms_and_conditions}` : null,
               dropTrailerCharge > 0 ? `Drop Trailer: ${item.currency} ${dropTrailerCharge.toFixed(2)}` : null,
               heavyWeightCharge > 0 ? `Heavy Weight: ${item.currency} ${heavyWeightCharge.toFixed(2)}` : null,
-              tailgateCharge > 0 ? `Tailgate: ${item.currency} ${tailgateCharge.toFixed(2)}` : null
+              tailgateCharge > 0 ? `Tailgate: ${item.currency} ${tailgateCharge.toFixed(2)}` : null,
+              sideLoaderCharge > 0 ? `Side Loader: ${item.currency} ${sideLoaderCharge.toFixed(2)}` : null
             ].filter(Boolean).join(' | ') || undefined
           });
         });

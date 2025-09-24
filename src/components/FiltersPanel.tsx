@@ -410,6 +410,18 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
           </label>
         </div>
 
+        <div>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={filters.side_loader_access_fees || false}
+              onChange={(e) => handleBooleanFilterChange('side_loader_access_fees', e.target.checked)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Side Loader Access Fees</span>
+          </label>
+        </div>
+
       </div>
 
       <div className="mt-6 pt-4 border-t border-gray-200">
