@@ -110,7 +110,7 @@ export default function Home() {
       qty20: inputs.qty20,
       qty40: inputs.qty40,
       qty40HC: inputs.qty40HC,
-      lclCbm: inputs.lclCbm
+      lclCbm: inputs.lclCbm,
       fumigationSurcharge: false
     };
     exportPdf3Parts(results, meta);
