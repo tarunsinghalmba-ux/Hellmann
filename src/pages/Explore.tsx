@@ -110,9 +110,6 @@ export default function Explore() {
           if (filters.unpack_palletized === true) {
             query = query.not('container_unpack_rate_palletized', 'is', null);
           }
-          if (filters.fumigation_surcharge === true) {
-            query = query.not('fumigation_bmsb', 'is', null);
-          }
           if (filters.validity_start) query = query.gte('valid_until', filters.validity_start);
           if (filters.validity_end) query = query.lte('effective_date', filters.validity_end);
           return query.limit(500);
@@ -131,8 +128,7 @@ export default function Explore() {
           const sideLoaderCharge = filters.side_loader_access_fees ? (parseFloat(item.side_loader_access_fees) || 0) : 0;
           const unpackLooseCharge = filters.unpack_loose ? (parseFloat(item.container_unpack_rate_loose) || 0) : 0;
           const unpackPalletizedCharge = filters.unpack_palletized ? (parseFloat(item.container_unpack_rate_palletized) || 0) : 0;
-          const fumigationCharge = filters.fumigation_surcharge ? (parseFloat(item.fumigation_bmsb) || 0) : 0;
-          const totalRate = baseRate + dropTrailerCharge + heavyWeightCharge + tailgateCharge + sideLoaderCharge + unpackLooseCharge + unpackPalletizedCharge + fumigationCharge;
+          const totalRate = baseRate + dropTrailerCharge + heavyWeightCharge + tailgateCharge + sideLoaderCharge + unpackLooseCharge + unpackPalletizedCharge;
         
           combinedData.push({
             id: item.id,
@@ -154,8 +150,7 @@ export default function Explore() {
               tailgateCharge > 0 ? `Tailgate: ${item.currency} ${tailgateCharge.toFixed(2)}` : null,
               sideLoaderCharge > 0 ? `Side Loader: ${item.currency} ${sideLoaderCharge.toFixed(2)}` : null,
               unpackLooseCharge > 0 ? `Unpack Loose: ${item.currency} ${unpackLooseCharge.toFixed(2)}` : null,
-              unpackPalletizedCharge > 0 ? `Unpack Palletized: ${item.currency} ${unpackPalletizedCharge.toFixed(2)}` : null,
-              fumigationCharge > 0 ? `Fumigation: ${item.currency} ${fumigationCharge.toFixed(2)}` : null
+              unpackPalletizedCharge > 0 ? `Unpack Palletized: ${item.currency} ${unpackPalletizedCharge.toFixed(2)}` : null
             ].filter(Boolean).join(' | ') || undefined
           });
         });
