@@ -24,6 +24,7 @@ const initialInputs: CalculationInputs = {
   sideLoaderAccessFees: false
 };
   unpackPalletized: false
+  weekendDeliverySurcharge: false
 
 export default function Home() {
   const [inputs, setInputs] = useState<CalculationInputs>(initialInputs);
@@ -59,7 +60,8 @@ export default function Home() {
         viaTailgate: inputs.viaTailgate,
         sideLoaderAccessFees: inputs.sideLoaderAccessFees,
         unpackLoose: inputs.unpackLoose,
-        unpackPalletized: inputs.unpackPalletized
+        unpackPalletized: inputs.unpackPalletized,
+        weekendDeliverySurcharge: inputs.weekendDeliverySurcharge
       };
       
       const calculationResults = await calculateThreeParts(calcInput, setSqlQueries);

@@ -128,7 +128,8 @@ export default function Explore() {
           const sideLoaderCharge = filters.side_loader_access_fees ? (parseFloat(item.side_loader_access_fees) || 0) : 0;
           const unpackLooseCharge = filters.unpack_loose ? (parseFloat(item.container_unpack_rate_loose) || 0) : 0;
           const unpackPalletizedCharge = filters.unpack_palletized ? (parseFloat(item.container_unpack_rate_palletized) || 0) : 0;
-          const totalRate = baseRate + dropTrailerCharge + heavyWeightCharge + tailgateCharge + sideLoaderCharge + unpackLooseCharge + unpackPalletizedCharge;
+          const weekendDeliveryCharge = filters.weekend_delivery_surcharge ? (parseFloat(item.weekend_delivery_surcharge) || 0) : 0;
+          const totalRate = baseRate + dropTrailerCharge + heavyWeightCharge + tailgateCharge + sideLoaderCharge + unpackLooseCharge + unpackPalletizedCharge + weekendDeliveryCharge;
         
           combinedData.push({
             id: item.id,
@@ -150,7 +151,8 @@ export default function Explore() {
               tailgateCharge > 0 ? `Tailgate: ${item.currency} ${tailgateCharge.toFixed(2)}` : null,
               sideLoaderCharge > 0 ? `Side Loader: ${item.currency} ${sideLoaderCharge.toFixed(2)}` : null,
               unpackLooseCharge > 0 ? `Unpack Loose: ${item.currency} ${unpackLooseCharge.toFixed(2)}` : null,
-              unpackPalletizedCharge > 0 ? `Unpack Palletized: ${item.currency} ${unpackPalletizedCharge.toFixed(2)}` : null
+              unpackPalletizedCharge > 0 ? `Unpack Palletized: ${item.currency} ${unpackPalletizedCharge.toFixed(2)}` : null,
+              weekendDeliveryCharge > 0 ? `Weekend Delivery: ${item.currency} ${weekendDeliveryCharge.toFixed(2)}` : null
             ].filter(Boolean).join(' | ') || undefined
           });
         });

@@ -24,6 +24,7 @@ export interface CalcInput {
   viaTailgate?: boolean; // via tailgate filter
   sideLoaderAccessFees?: boolean; // side loader access fees filter
   unpackPalletized?: boolean; // unpack palletized filter
+  weekendDeliverySurcharge?: boolean; // weekend delivery surcharge filter
 }
 
 export interface LineItem { 
@@ -390,10 +391,13 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       // Calculate unpack palletized charge if unpack palletized is selected
       const unpackPalletizedCharge = input.unpackPalletized ? (parseFloat(r.container_unpack_rate_palletized) || 0) : 0;
       
+      // Calculate weekend delivery surcharge if weekend delivery surcharge is selected
+      const weekendDeliverySurcharge = input.weekendDeliverySurcharge ? (parseFloat(r.weekend_delivery_surcharge) || 0) : 0;
+      
       // 20GP transport
       if (qty20 > 0) {
         const baseRate = parseFloat(r['20gp']) || 0;
-        const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge;
+        const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge + weekendDeliverySurcharge;
         if (rate > 0) {
           const total = rate * qty20;
           const additionalCharges = [];
@@ -404,6 +408,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           if (sideLoaderAccessFees > 0) additionalCharges.push(`Side Loader: ${sideLoaderAccessFees.toFixed(2)}`);
           if (unpackLooseCharge > 0) additionalCharges.push(`Unpack Loose: ${unpackLooseCharge.toFixed(2)}`);
           if (unpackPalletizedCharge > 0) additionalCharges.push(`Unpack Palletized: ${unpackPalletizedCharge.toFixed(2)}`);
+          if (weekendDeliverySurcharge > 0) additionalCharges.push(`Weekend Delivery: ${weekendDeliverySurcharge.toFixed(2)}`);
           const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
           delItems.push({
             label: `${baseLabel} (20GP${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
@@ -419,7 +424,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       // 40GP transport
       if (qty40 > 0) {
         const baseRate = parseFloat(r['40gp_40hc']) || 0;
-        const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge;
+        const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge + weekendDeliverySurcharge;
         if (rate > 0) {
           const total = rate * qty40;
           const additionalCharges = [];
@@ -430,6 +435,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           if (sideLoaderAccessFees > 0) additionalCharges.push(`Side Loader: ${sideLoaderAccessFees.toFixed(2)}`);
           if (unpackLooseCharge > 0) additionalCharges.push(`Unpack Loose: ${unpackLooseCharge.toFixed(2)}`);
           if (unpackPalletizedCharge > 0) additionalCharges.push(`Unpack Palletized: ${unpackPalletizedCharge.toFixed(2)}`);
+          if (weekendDeliverySurcharge > 0) additionalCharges.push(`Weekend Delivery: ${weekendDeliverySurcharge.toFixed(2)}`);
           const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
           delItems.push({
             label: `${baseLabel} (40GP${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
@@ -445,7 +451,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       // 40HC transport
       if (qty40HC > 0) {
         const baseRate = parseFloat(r['40gp_40hc']) || 0;
-        const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge;
+        const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge + weekendDeliverySurcharge;
         if (rate > 0) {
           const total = rate * qty40HC;
           const additionalCharges = [];
@@ -456,6 +462,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           if (sideLoaderAccessFees > 0) additionalCharges.push(`Side Loader: ${sideLoaderAccessFees.toFixed(2)}`);
           if (unpackLooseCharge > 0) additionalCharges.push(`Unpack Loose: ${unpackLooseCharge.toFixed(2)}`);
           if (unpackPalletizedCharge > 0) additionalCharges.push(`Unpack Palletized: ${unpackPalletizedCharge.toFixed(2)}`);
+          if (weekendDeliverySurcharge > 0) additionalCharges.push(`Weekend Delivery: ${weekendDeliverySurcharge.toFixed(2)}`);
           const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
           delItems.push({
             label: `${baseLabel} (40HC${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
@@ -473,7 +480,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         // Check if there's a cubic rate for LCL transport
         const cubicRate = parseFloat(r.cubic_rate) || 0;
         if (cubicRate > 0) {
-          const rate = cubicRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge;
+          const rate = cubicRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge + weekendDeliverySurcharge;
           const total = cubicRate * lclCbm;
           const additionalCharges = [];
           if (dgSurcharge > 0) additionalCharges.push(`DG: ${dgSurcharge.toFixed(2)}`);
@@ -483,6 +490,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           if (sideLoaderAccessFees > 0) additionalCharges.push(`Side Loader: ${sideLoaderAccessFees.toFixed(2)}`);
           if (unpackLooseCharge > 0) additionalCharges.push(`Unpack Loose: ${unpackLooseCharge.toFixed(2)}`);
           if (unpackPalletizedCharge > 0) additionalCharges.push(`Unpack Palletized: ${unpackPalletizedCharge.toFixed(2)}`);
+          if (weekendDeliverySurcharge > 0) additionalCharges.push(`Weekend Delivery: ${weekendDeliverySurcharge.toFixed(2)}`);
           const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
           delItems.push({
             label: `${baseLabel} (LCL${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
@@ -495,7 +503,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         } else {
           // Fallback: treat LCL as 1 container for transport
           const baseRate = parseFloat(r['20gp']) || 0;
-          const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge;
+          const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge + weekendDeliverySurcharge;
           if (rate > 0) {
             const additionalCharges = [];
             if (dgSurcharge > 0) additionalCharges.push(`DG: ${dgSurcharge.toFixed(2)}`);
@@ -505,6 +513,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             if (sideLoaderAccessFees > 0) additionalCharges.push(`Side Loader: ${sideLoaderAccessFees.toFixed(2)}`);
             if (unpackLooseCharge > 0) additionalCharges.push(`Unpack Loose: ${unpackLooseCharge.toFixed(2)}`);
             if (unpackPalletizedCharge > 0) additionalCharges.push(`Unpack Palletized: ${unpackPalletizedCharge.toFixed(2)}`);
+            if (weekendDeliverySurcharge > 0) additionalCharges.push(`Weekend Delivery: ${weekendDeliverySurcharge.toFixed(2)}`);
             const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
             delItems.push({
               label: `${baseLabel} (LCL${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
