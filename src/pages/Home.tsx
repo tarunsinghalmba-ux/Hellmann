@@ -21,10 +21,11 @@ const initialInputs: CalculationInputs = {
   dropTrailer: false,
   heavyWeightSurcharge: false,
   viaTailgate: false,
-  sideLoaderAccessFees: false
-};
+  sideLoaderAccessFees: false,
+  unpackLoose: false,
   unpackPalletized: false,
   fumigationSurcharge: false
+};
 
 export default function Home() {
   const [inputs, setInputs] = useState<CalculationInputs>(initialInputs);
