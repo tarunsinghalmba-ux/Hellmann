@@ -56,7 +56,8 @@ export default function Home() {
         dropTrailer: inputs.dropTrailer,
         heavyWeightSurcharge: inputs.heavyWeightSurcharge,
         viaTailgate: inputs.viaTailgate,
-        sideLoaderAccessFees: inputs.sideLoaderAccessFees
+        sideLoaderAccessFees: inputs.sideLoaderAccessFees,
+        unpackLoose: inputs.unpackLoose
       };
       
       const calculationResults = await calculateThreeParts(calcInput, setSqlQueries);

@@ -68,6 +68,7 @@ export interface CalculationInputs {
   heavyWeightSurcharge?: boolean;
   viaTailgate?: boolean;
   sideLoaderAccessFees?: boolean;
+  unpackLoose?: boolean;
 }
 
 export interface LineItem {
@@ -153,4 +154,5 @@ export interface FilterParams {
   heavy_weight_surcharge?: boolean;
   via_tailgate?: boolean;
   side_loader_access_fees?: boolean;
+  unpack_loose?: boolean;
 }
