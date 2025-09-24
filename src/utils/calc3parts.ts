@@ -1,0 +1,501 @@
+import { supabase } from '../lib/supabase';
+import { selectWithFallback, TABLE_KEYS } from '../lib/tableMap';
+import type { Direction, Equipment, OceanRow, LocalRow, TransportRow } from '../types';
+
+export interface CalcInput {
+  direction: Direction;
+  pol: string; // Port of Loading
+  pod: string; // Port of Discharge
+  suburb: string; // Delivery point for import, Pickup point for export
+  fromDate: string; // YYYY-MM-DD
+  toDate: string;   // YYYY-MM-DD
+  qty20: number;        // 20GP container quantity
+  qty40: number;        // 40GP container quantity
+  qty40HC: number;      // 40HC container quantity
+  lclCbm?: number;      // only when equipment = 'LCL'
+  mode?: string;        // transportation mode filter
+  vehicleType?: string; // vehicle type filter
+  carrier?: string;    // carrier filter
+  transitTime?: string; // transit time filter
+  transportVendor?: string; // transport vendor filter
+  dangerousGoods?: boolean; // dangerous goods filter
+}
+
+export interface LineItem { 
+  label: string; 
+  unit?: string; 
+  qty: number; 
+  rate: number; 
+  total: number; 
+  extra?: string; 
+}
+
+export interface Section { 
+  currency: string; 
+  title: string; 
+  subtitle?: string; 
+  items: LineItem[]; 
+  subtotal: number; 
+}
+
+export interface CalcResult { 
+  oceanUSD: Section; 
+  localsAUD: Section; 
+  deliveryAUD: Section; 
+  sqlQueries: string[];
+}
+
+const nf = (currency: string) => new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 });
+
+function subTotal(items: LineItem[]) { return items.reduce((s, r) => s + r.total, 0); }
+
+export async function calculateThreeParts(input: CalcInput): Promise<CalcResult> {
+  const { direction, pol, pod, suburb, fromDate, toDate, qty20, qty40, qty40HC, lclCbm = 0 } = input;
+  const queries: string[] = [];
+
+  console.log('=== CALCULATION INPUT ===');
+  console.log('Direction:', direction);
+  console.log('POL:', pol);
+  console.log('POD:', pod);
+  console.log('Suburb:', suburb);
+  console.log('Date Range:', fromDate, 'to', toDate);
+  console.log('20GP Quantity:', qty20);
+  console.log('40GP Quantity:', qty40);
+  console.log('40HC Quantity:', qty40HC);
+  console.log('LCL CBM:', lclCbm);
+  console.log('Mode:', input.mode);
+  console.log('Transit Time:', input.transitTime);
+  console.log('Vehicle Type:', input.vehicleType);
+  console.log('========================');
+  // 1) OCEAN USD
+  let oceanItems: LineItem[] = [];
+  try {
+    const modeFilter = input.mode ? ` AND UPPER("mode") = UPPER('${input.mode}')` : '';
+    const carrierFilter = input.carrier ? ` AND UPPER("carrier") = UPPER('${input.carrier}')` : '';
+    const transitTimeFilter = (input.transitTime && parseInt(input.transitTime) > 0) ? ` AND "transit_time" = ${parseInt(input.transitTime)}` : '';
+    const serviceTypeFilter = input.serviceType ? ` AND UPPER("service_type") = UPPER('${input.serviceType}')` : '';
+    const dangerousGoodsFilter = input.dangerousGoods === true ? ` AND "dg" = 'Yes'` : input.dangerousGoods === false ? ` AND "dg" = 'No'` : '';
+    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","currency","mode","carrier","transit_time","service_type","dg" FROM "ocean_freight" WHERE UPPER("port_of_loading") = UPPER('${pol}') AND UPPER("port_of_discharge") = UPPER('${pod}') AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter} LIMIT 200`;
+    queries.push(oceanQuery);
+    
+    console.log('=== OCEAN FREIGHT QUERY ===');
+    console.log('SQL:', oceanQuery);
+    
+    const { data: ocean } = await selectWithFallback(TABLE_KEYS.ocean, (q) => {
+      let query = q.select('port_of_loading,port_of_discharge,direction,20gp,40gp_40hc,currency,mode,carrier,transit_time,service_type')
+        .ilike('port_of_loading', pol)
+        .ilike('port_of_discharge', pod)
+        .ilike('direction', direction)
+        .eq('currency', 'USD')
+        .lte('effective_date', toDate)
+        .gte('valid_until', fromDate)
+        .limit(200);
+      
+      if (input.mode) {
+        query = query.ilike('mode', input.mode);
+      }
+      
+      if (input.carrier) {
+        query = query.ilike('carrier', input.carrier);
+      }
+      
+      if (input.transitTime && parseInt(input.transitTime) > 0) {
+        query = query.eq('transit_time', parseInt(input.transitTime));
+      }
+      
+      if (input.serviceType) {
+        query = query.ilike('service_type', input.serviceType);
+      }
+      
+      if (input.dangerousGoods === true) {
+        query = query.eq('dg', 'Yes');
+      } else if (input.dangerousGoods === false) {
+        query = query.eq('dg', 'No');
+      }
+      
+      return query;
+    });
+
+    console.log('Ocean Freight Results:');
+    console.log('- Row count:', ocean?.length || 0);
+    console.log('- Raw data:', ocean);
+    console.log('===========================');
+    
+    // Process each container type separately
+    (ocean ?? []).forEach((r: any) => {
+      // 20GP containers
+      if (qty20 > 0) {
+        const rate = parseFloat(r['20gp']) || 0;
+        if (rate > 0) {
+          const total = rate * qty20;
+          const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
+          oceanItems.push({
+            label: `${pol} → ${pod} (20GP${extraInfo ? ` - ${extraInfo}` : ''})`,
+            unit: 'PER_CONTAINER',
+            qty: qty20,
+            rate,
+            total,
+            extra: extraInfo || undefined
+          });
+        }
+      }
+      
+      // 40GP containers
+      if (qty40 > 0) {
+        const rate = parseFloat(r['40gp_40hc']) || 0;
+        if (rate > 0) {
+          const total = rate * qty40;
+          const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
+          oceanItems.push({
+            label: `${pol} → ${pod} (40GP${extraInfo ? ` - ${extraInfo}` : ''})`,
+            unit: 'PER_CONTAINER',
+            qty: qty40,
+            rate,
+            total,
+            extra: extraInfo || undefined
+          });
+        }
+      }
+      
+      // 40HC containers
+      if (qty40HC > 0) {
+        const rate = parseFloat(r['40gp_40hc']) || 0;
+        if (rate > 0) {
+          const total = rate * qty40HC;
+          const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
+          oceanItems.push({
+            label: `${pol} → ${pod} (40HC${extraInfo ? ` - ${extraInfo}` : ''})`,
+            unit: 'PER_CONTAINER',
+            qty: qty40HC,
+            rate,
+            total,
+            extra: extraInfo || undefined
+          });
+        }
+      }
+      
+      // LCL
+      if (lclCbm > 0) {
+        const rate = parseFloat(r.cubic_rate) || 0;
+        if (rate > 0) {
+          const total = rate * lclCbm;
+          const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
+          oceanItems.push({
+            label: `${pol} → ${pod} (LCL${extraInfo ? ` - ${extraInfo}` : ''})`,
+            unit: 'PER_CBM',
+            qty: lclCbm,
+            rate,
+            total,
+            extra: extraInfo || undefined
+          });
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching ocean freight:', error);
+  }
+
+  const oceanUSD: Section = { 
+    currency: 'USD', 
+    title: 'Ocean Freight (USD)', 
+    subtitle: `${pol} → ${pod} • ${getEquipmentSummary(qty20, qty40, qty40HC, lclCbm)}`, 
+    items: oceanItems, 
+    subtotal: subTotal(oceanItems) 
+  };
+
+  // 2) LOCALS AUD (mandatory only if column exists)
+  let localsItems: LineItem[] = [];
+  try {
+    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","currency" FROM "local" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("port_of_discharge") = UPPER('${direction === 'import' ? pod : pol}') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}' LIMIT 500`;
+    queries.push(localsQuery);
+    
+    console.log('=== LOCAL CHARGES QUERY ===');
+    console.log('SQL:', localsQuery);
+    
+    const { data: locals } = await selectWithFallback(TABLE_KEYS.local, (q) =>
+      q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,currency')
+        .ilike('direction', direction)
+        .ilike('port_of_discharge', direction === 'import' ? pod : pol)
+        .eq('currency', 'AUD')
+        .lte('effective_date', toDate)
+        .gte('valid_until', fromDate)
+        .limit(500)
+    );
+
+    console.log('Local Charges Results:');
+    console.log('- Row count:', locals?.length || 0);
+    console.log('- Raw data:', locals);
+    console.log('===========================');
+    
+    // Process local charges for each container type
+    (locals ?? []).forEach((r: any) => {
+      // Per shipment charges (apply once regardless of container count)
+      if (r.per_shipment_charge && parseFloat(r.per_shipment_charge) > 0) {
+        const rate = parseFloat(r.per_shipment_charge);
+        localsItems.push({
+          label: r.charge_description || 'Local Charge',
+          unit: 'PER_SHIPMENT',
+          qty: 1,
+          rate,
+          total: rate,
+          extra: r.cw1_charge_code ?? undefined
+        });
+      }
+      
+      // 20GP container charges
+      if (qty20 > 0 && r['20gp']) {
+        const rate = parseFloat(r['20gp']) || 0;
+        if (rate > 0) {
+          const total = rate * qty20;
+          localsItems.push({
+            label: `${r.charge_description || 'Local Charge'} (20GP)`,
+            unit: 'PER_CONTAINER',
+            qty: qty20,
+            rate,
+            total,
+            extra: r.cw1_charge_code ?? undefined
+          });
+        }
+      }
+      
+      // 40GP/40HC container charges
+      if ((qty40 > 0 || qty40HC > 0) && r['40gp_40hc']) {
+        const rate = parseFloat(r['40gp_40hc']) || 0;
+        if (rate > 0) {
+          // 40GP charges
+          if (qty40 > 0) {
+            const total = rate * qty40;
+            localsItems.push({
+              label: `${r.charge_description || 'Local Charge'} (40GP)`,
+              unit: 'PER_CONTAINER',
+              qty: qty40,
+              rate,
+              total,
+              extra: r.cw1_charge_code ?? undefined
+            });
+          }
+          
+          // 40HC charges
+          if (qty40HC > 0) {
+            const total = rate * qty40HC;
+            localsItems.push({
+              label: `${r.charge_description || 'Local Charge'} (40HC)`,
+              unit: 'PER_CONTAINER',
+              qty: qty40HC,
+              rate,
+              total,
+              extra: r.cw1_charge_code ?? undefined
+            });
+          }
+        }
+      }
+      
+      // LCL charges (if cubic rate available)
+      if (lclCbm > 0 && r.cubic_rate) {
+        const rate = parseFloat(r.cubic_rate) || 0;
+        if (rate > 0) {
+          const total = rate * lclCbm;
+          localsItems.push({
+            label: `${r.charge_description || 'Local Charge'} (LCL)`,
+            unit: 'PER_CBM',
+            qty: lclCbm,
+            rate,
+            total,
+            extra: r.cw1_charge_code ?? undefined
+          });
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching local charges:', error);
+  }
+
+  const localsAUD: Section = { 
+    currency: 'AUD', 
+    title: 'Locals (AUD)', 
+    subtitle: `${direction === 'import' ? pod : pol} • ${getEquipmentSummary(qty20, qty40, qty40HC, lclCbm)}`, 
+    items: localsItems, 
+    subtotal: subTotal(localsItems) 
+  };
+
+  // 3) DELIVERY AUD (transport)
+  let delItems: LineItem[] = [];
+  try {
+    const vehicleTypeFilter = input.vehicleType ? ` AND UPPER("vehicle_type") = UPPER('${input.vehicleType}')` : '';
+    const transportVendorFilter = input.transportVendor ? ` AND UPPER("transport_vendor") = UPPER('${input.transportVendor}')` : '';
+    const transportQuery = direction === 'import' 
+      ? `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("delivery_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter} LIMIT 200`
+      : `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("pick_up_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter} LIMIT 200`;
+    queries.push(transportQuery);
+    
+    console.log('=== TRANSPORT QUERY ===');
+    console.log('SQL:', transportQuery);
+    
+    const { data: transport } = await selectWithFallback(TABLE_KEYS.transport, (q) => {
+      let base = q
+        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,currency,dg_surcharge,transport_vendor')
+        .ilike('direction', direction)
+        .eq('currency', 'AUD')
+        .lte('effective_date', toDate)
+        .gte('valid_until', fromDate)
+        .limit(200);
+      
+      if (input.vehicleType) {
+        base = base.ilike('vehicle_type', input.vehicleType);
+      }
+      
+      if (input.transportVendor) {
+        base = base.ilike('transport_vendor', input.transportVendor);
+      }
+      
+      return direction === 'import'
+        ? base.ilike('delivery_location', `%${suburb}%`)
+        : base.ilike('pick_up_location', `%${suburb}%`);
+    });
+
+    console.log('Transport Results:');
+    console.log('- Row count:', transport?.length || 0);
+    console.log('- Raw data:', transport);
+    console.log('=======================');
+    
+    // Process transport charges for each container type
+    (transport ?? []).forEach((r: any) => {
+      const baseLabel = r.charge_description || (direction === 'import' 
+        ? `${r.delivery_location ?? suburb} delivery` 
+        : `${r.pick_up_location ?? suburb} pickup`);
+      
+      // Calculate DG surcharge if dangerous goods are selected
+      const dgSurcharge = input.dangerousGoods ? (parseFloat(r.dg_surcharge) || 0) : 0;
+      
+      // 20GP transport
+      if (qty20 > 0) {
+        const baseRate = parseFloat(r['20gp']) || 0;
+        const rate = baseRate + dgSurcharge;
+        if (rate > 0) {
+          const total = rate * qty20;
+          const dgNote = dgSurcharge > 0 ? ` + DG Surcharge: ${dgSurcharge.toFixed(2)}` : '';
+          delItems.push({
+            label: `${baseLabel} (20GP${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${dgNote})`,
+            unit: 'PER_CONTAINER',
+            qty: qty20,
+            rate,
+            total,
+            extra: r.vehicle_type ?? undefined
+          });
+        }
+      }
+      
+      // 40GP transport
+      if (qty40 > 0) {
+        const baseRate = parseFloat(r['40gp_40hc']) || 0;
+        const rate = baseRate + dgSurcharge;
+        if (rate > 0) {
+          const total = rate * qty40;
+          const dgNote = dgSurcharge > 0 ? ` + DG Surcharge: ${dgSurcharge.toFixed(2)}` : '';
+          delItems.push({
+            label: `${baseLabel} (40GP${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${dgNote})`,
+            unit: 'PER_CONTAINER',
+            qty: qty40,
+            rate,
+            total,
+            extra: r.vehicle_type ?? undefined
+          });
+        }
+      }
+      
+      // 40HC transport
+      if (qty40HC > 0) {
+        const baseRate = parseFloat(r['40gp_40hc']) || 0;
+        const rate = baseRate + dgSurcharge;
+        if (rate > 0) {
+          const total = rate * qty40HC;
+          const dgNote = dgSurcharge > 0 ? ` + DG Surcharge: ${dgSurcharge.toFixed(2)}` : '';
+          delItems.push({
+            label: `${baseLabel} (40HC${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${dgNote})`,
+            unit: 'PER_CONTAINER',
+            qty: qty40HC,
+            rate,
+            total,
+            extra: r.vehicle_type ?? undefined
+          });
+        }
+      }
+      
+      // LCL transport (if applicable - some transport may charge per CBM)
+      if (lclCbm > 0) {
+        // Check if there's a cubic rate for LCL transport
+        const cubicRate = parseFloat(r.cubic_rate) || 0;
+        if (cubicRate > 0) {
+          const rate = cubicRate + dgSurcharge;
+          const total = cubicRate * lclCbm;
+          const dgNote = dgSurcharge > 0 ? ` + DG Surcharge: ${dgSurcharge.toFixed(2)}` : '';
+          delItems.push({
+            label: `${baseLabel} (LCL${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${dgNote})`,
+            unit: 'PER_CBM',
+            qty: lclCbm,
+            rate,
+            total,
+            extra: r.vehicle_type ?? undefined
+          });
+        } else {
+          // Fallback: treat LCL as 1 container for transport
+          const baseRate = parseFloat(r['20gp']) || 0;
+          const rate = baseRate + dgSurcharge;
+          if (rate > 0) {
+            const dgNote = dgSurcharge > 0 ? ` + DG Surcharge: ${dgSurcharge.toFixed(2)}` : '';
+            delItems.push({
+              label: `${baseLabel} (LCL${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${dgNote})`,
+              unit: 'PER_CONTAINER',
+              qty: 1,
+              rate,
+              total: rate,
+              extra: r.vehicle_type ?? undefined
+            });
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching transport charges:', error);
+  }
+
+  console.log('=== FINAL RESULTS SUMMARY ===');
+  console.log('Ocean items processed:', oceanItems.length);
+  console.log('Local items processed:', localsItems.length);
+  console.log('Transport items processed:', delItems.length);
+  console.log('==============================');
+  const deliveryAUD: Section = { 
+    currency: 'AUD', 
+    title: 'Destination Delivery (AUD)', 
+    subtitle: `${suburb} • ${getEquipmentSummary(qty20, qty40, qty40HC, lclCbm)}`, 
+    items: delItems, 
+    subtotal: subTotal(delItems) 
+  };
+
+  return { oceanUSD, localsAUD, deliveryAUD, sqlQueries: queries };
+}
+
+function getEquipmentSummary(qty20: number, qty40: number, qty40HC: number, lclCbm: number): string {
+  const parts: string[] = [];
+  if (qty20 > 0) parts.push(`${qty20}x20GP`);
+  if (qty40 > 0) parts.push(`${qty40}x40GP`);
+  if (qty40HC > 0) parts.push(`${qty40HC}x40HC`);
+  if (lclCbm > 0) parts.push(`${lclCbm}CBM`);
+  return parts.join(', ') || 'No equipment';
+}
+export function toCsv(sections: CalcResult): string {
+  const rows: string[] = [];
+  const pushSec = (name: string, s: Section) => {
+    rows.push(`${name} (${s.currency})`);
+    rows.push('Label,Unit,Qty,Rate,Total');
+    s.items.forEach(i => rows.push(`${escapeCsv(i.label)},${i.unit ?? ''},${i.qty},${i.rate},${i.total}`));
+    rows.push(`Subtotal,, , ,${s.subtotal}`);
+    rows.push('');
+  };
+  pushSec('Ocean Freight', sections.oceanUSD);
+  pushSec('Locals', sections.localsAUD);
+  pushSec('Destination Delivery', sections.deliveryAUD);
+  return rows.join('\n');
+}
+
+function escapeCsv(v: string) { return '"' + (v ?? '').replaceAll('"', '""') + '"'; }
