@@ -23,7 +23,8 @@ const initialInputs: CalculationInputs = {
   viaTailgate: false,
   sideLoaderAccessFees: false
 };
-  unpackPalletized: false
+  unpackPalletized: false,
+  fumigationSurcharge: false
 
 export default function Home() {
   const [inputs, setInputs] = useState<CalculationInputs>(initialInputs);
