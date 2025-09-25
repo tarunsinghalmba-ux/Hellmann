@@ -281,7 +281,7 @@ export default function Explore() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img 
-                src="/Logo Hellmann Worldwide Logistics RGB.png" 
+                src="/Logo Hellmann Worldwide Logistics RGB copy.png" 
                 alt="Hellmann Worldwide Logistics" 
                 className="h-10 w-auto"
               />
