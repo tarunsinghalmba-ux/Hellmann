@@ -23,6 +23,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   updateUserRole: (userId: string, role: string, active: boolean) => Promise<{ error: any }>;
   getAllUsers: () => Promise<{ data: any[], error: any }>;
+  deleteUser: (userId: string) => Promise<{ error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -186,6 +187,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { data: data || [], error };
   };
 
+  const deleteUser = async (userId: string) => {
+    if (!supabase || !isSuperUser) {
+      return { error: { message: 'Unauthorized: Only SuperUsers can delete users' } };
+    }
+
+    // First delete from user_roles table
+    const { error: roleError } = await supabase
+      .from('user_roles')
+      .delete()
+      .eq('user_id', userId);
+
+    if (roleError) {
+      console.error('Error deleting user role:', roleError);
+      // Continue with user deletion even if role deletion fails
+    }
+
+    // Then delete from auth.users table using admin API
+    const { error } = await supabase.auth.admin.deleteUser(userId);
+
+    return { error };
+  };
+
   const value = {
     user,
     session,
@@ -198,6 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     updateUserRole,
     getAllUsers,
+    deleteUser,
   };
 
   return (

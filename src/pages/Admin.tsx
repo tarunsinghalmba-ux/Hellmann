@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Crown, Users, Shield, Check, X, CreditCard as Edit2, Save, RotateCcw } from 'lucide-react';
+import { Crown, Users, Shield, Check, X, CreditCard as Edit2, Save, RotateCcw, Trash2 } from 'lucide-react';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -14,13 +14,15 @@ interface UserData {
 }
 
 export default function Admin() {
-  const { isSuperUser, getAllUsers, updateUserRole } = useAuth();
+  const { isSuperUser, getAllUsers, updateUserRole, deleteUser } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editRole, setEditRole] = useState<string>('');
   const [editActive, setEditActive] = useState<boolean>(false);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   useEffect(() => {
     if (isSuperUser) {
@@ -73,6 +75,35 @@ export default function Admin() {
     setEditingUser(null);
     setEditRole('');
     setEditActive(false);
+  };
+
+  const handleDeleteUser = async (userId: string, userEmail: string) => {
+    if (deleteConfirm !== userId) {
+      setDeleteConfirm(userId);
+      return;
+    }
+
+    setDeleting(userId);
+    try {
+      const { error } = await deleteUser(userId);
+      if (error) {
+        console.error('Error deleting user:', error);
+        alert('Error deleting user: ' + error.message);
+      } else {
+        alert(`User ${userEmail} has been successfully deleted.`);
+        await loadUsers(); // Refresh the list
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('Error deleting user');
+    } finally {
+      setDeleting(null);
+      setDeleteConfirm(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirm(null);
   };
 
   if (!isSuperUser) {
@@ -235,13 +266,44 @@ export default function Admin() {
                             </button>
                           </div>
                         ) : (
-                          <button
-                            onClick={() => handleEditUser(user)}
-                            className="flex items-center gap-1 text-blue-600 hover:text-blue-900"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                            Edit
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleEditUser(user)}
+                              className="flex items-center gap-1 text-blue-600 hover:text-blue-900"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                              Edit
+                            </button>
+                            {deleteConfirm === user.id ? (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => handleDeleteUser(user.id, user.email)}
+                                  disabled={deleting === user.id}
+                                  className="flex items-center gap-1 text-red-600 hover:text-red-900 disabled:opacity-50 text-xs bg-red-50 px-2 py-1 rounded"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  Confirm Delete
+                                </button>
+                                <button
+                                  onClick={handleCancelDelete}
+                                  disabled={deleting === user.id}
+                                  className="flex items-center gap-1 text-gray-600 hover:text-gray-900 disabled:opacity-50 text-xs"
+                                >
+                                  <X className="h-3 w-3" />
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleDeleteUser(user.id, user.email)}
+                                disabled={deleting === user.id}
+                                className="flex items-center gap-1 text-red-600 hover:text-red-900 disabled:opacity-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Delete
+                              </button>
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -258,6 +320,7 @@ export default function Admin() {
             <li>• View all users and their roles</li>
             <li>• Activate/deactivate user accounts</li>
             <li>• Promote users to Super Admin or demote to Regular</li>
+            <li>• Delete user accounts permanently</li>
             <li>• Access to admin panel and user management</li>
           </ul>
         </div>
