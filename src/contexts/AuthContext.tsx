@@ -6,6 +6,7 @@ interface UserRole {
   id: string;
   user_id: string;
   role: string;
+  active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -14,6 +15,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   userRole: string | null;
+  userActive: boolean | null;
   loading: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
@@ -34,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [userActive, setUserActive] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchUserRole = async (userId: string) => {
@@ -42,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('user_roles')
-        .select('role')
+        .select('role, active')
         .eq('user_id', userId)
         .maybeSingle();
       
@@ -51,16 +54,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error.code === 'PGRST116' || error.message.includes('Could not find the table')) {
           console.log('User roles table not found, defaulting to Regular User');
           setUserRole('Regular User');
+          setUserActive(false);
         } else {
           console.error('Error fetching user role:', error);
           setUserRole('Regular User');
+          setUserActive(false);
         }
       } else {
         setUserRole(data?.role || 'Regular User');
+        setUserActive(data?.active || false);
       }
     } catch (error) {
       console.error('Error fetching user role:', error);
       setUserRole('Regular User');
+      setUserActive(false);
     }
   };
 
@@ -91,6 +98,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           fetchUserRole(session.user.id);
         } else {
           setUserRole(null);
+          setUserActive(null);
+          setUserActive(null);
         }
         setLoading(false);
       }
@@ -128,6 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     if (!supabase) return;
     setUserRole(null);
+    setUserActive(null);
     await supabase.auth.signOut();
   };
 
@@ -135,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     session,
     userRole,
+    userActive,
     loading,
     signUp,
     signIn,

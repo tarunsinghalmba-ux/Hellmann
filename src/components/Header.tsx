@@ -3,7 +3,7 @@ import { LogOut, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Header() {
-  const { user, userRole, signOut } = useAuth();
+  const { user, userRole, userActive, signOut } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
@@ -32,7 +32,9 @@ export default function Header() {
                 <div className="flex flex-col">
                   <span>{user.email}</span>
                   {userRole && (
-                    <span className="text-xs text-gray-500">{userRole}</span>
+                    <span className="text-xs text-gray-500">
+                      {userRole} {userActive === false && '(Deactivated)'}
+                    </span>
                   )}
                 </div>
               </div>
