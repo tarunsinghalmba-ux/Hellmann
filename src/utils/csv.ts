@@ -29,10 +29,15 @@ async function fetchTermsAndConditions(): Promise<string> {
 export async function exportResultsToCSV(results: CalculationResult[]): Promise<void> {
   const rows: string[] = [];
   
+  console.log('=== CSV EXPORT DEBUG ===');
+  console.log('Results received:', results);
+  
   // Headers
   rows.push('Currency,Category,Description,Unit,Quantity,Rate,Total,Container Type,Notes');
   
   for (const result of results) {
+    console.log(`Processing result for currency: ${result.currency}`);
+    
     // Ocean freight items
     for (const item of result.ocean.items) {
       rows.push(formatCSVRow([
@@ -134,12 +139,18 @@ export async function exportResultsToCSV(results: CalculationResult[]): Promise<
   
   // Fetch and append terms and conditions
   const termsText = await fetchTermsAndConditions();
+  console.log('Terms text fetched:', termsText);
+  console.log('Terms text length:', termsText?.length || 0);
+  
   if (termsText) {
     rows.push('');
     rows.push(formatCSVRow(['TERMS AND CONDITIONS', '', '', '', '', '', '', '', '']));
     rows.push('');
     // Split terms text by lines and add each line as a separate row
     const termsLines = termsText.split('\n');
+    console.log('Terms lines count:', termsLines.length);
+    console.log('First few terms lines:', termsLines.slice(0, 3));
+    
     termsLines.forEach(line => {
       if (line.trim()) {
         rows.push(formatCSVRow([line.trim(), '', '', '', '', '', '', '', '']));
@@ -147,7 +158,15 @@ export async function exportResultsToCSV(results: CalculationResult[]): Promise<
         rows.push('');
       }
     });
+  } else {
+    console.log('No terms text found or empty');
   }
+
+  console.log('Total CSV rows generated:', rows.length);
+  console.log('Last 10 rows:', rows.slice(-10));
+  console.log('Full CSV content:');
+  console.log(rows.join('\n'));
+  console.log('=== END CSV DEBUG ===');
 
   // Actually download the CSV file
   downloadCSV(rows.join('\n'), 'sea-freight-calculation');
