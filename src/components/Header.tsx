@@ -33,8 +33,8 @@ export default function Header() {
                   <span>{user.email}</span>
                   {userRole && (
                     <span className="text-xs text-gray-500">
-                      {userRole} {userActive === false && '(Deactivated)'}
-                    {userRole} {isSuperUser && '👑'} {userActive === false && '(Deactivated)'}
+                      {userRole} {isSuperUser && '👑'} {userActive === false && '(Deactivated)'}
+                    </span>
                   )}
                 </div>
               </div>
