@@ -148,6 +148,7 @@ export async function exportResultsToCSV(results: CalculationResult[]): Promise<
       }
     });
   }
+}
 
 export function exportFilteredDataToCSV(data: any[], filename: string): void {
   if (!data.length) return;
