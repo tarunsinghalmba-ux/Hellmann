@@ -47,14 +47,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
       
       if (error) {
-        console.error('Error fetching user role:', error);
-        setUserRole(null);
+        // If table doesn't exist or other error, default to Regular User
+        if (error.code === 'PGRST116' || error.message.includes('Could not find the table')) {
+          console.log('User roles table not found, defaulting to Regular User');
+          setUserRole('Regular User');
+        } else {
+          console.error('Error fetching user role:', error);
+          setUserRole('Regular User');
+        }
       } else {
         setUserRole(data?.role || null);
       }
     } catch (error) {
       console.error('Error fetching user role:', error);
-      setUserRole(null);
+      setUserRole('Regular User');
     }
   };
 
