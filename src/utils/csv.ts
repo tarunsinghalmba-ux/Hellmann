@@ -11,15 +11,15 @@ async function fetchTermsAndConditions(): Promise<string> {
     const { data, error } = await supabase
       .from('t_c')
       .select('terms_text')
-      .limit(1)
-      .single();
+      .order('id');
 
     if (error) {
       console.error('Error fetching terms and conditions:', error);
       return '';
     }
 
-    return data?.terms_text || '';
+    // Combine all terms_text from all records
+    return data?.map(record => record.terms_text).filter(Boolean).join('\n\n') || '';
   } catch (error) {
     console.error('Error fetching terms and conditions:', error);
     return '';
