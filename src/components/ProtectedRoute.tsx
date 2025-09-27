@@ -7,7 +7,7 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, userActive, loading } = useAuth();
+  const { user, userActive, loading, signOut } = useAuth();
 
   if (loading) {
     return (
@@ -49,7 +49,6 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
               </button>
               <button
                 onClick={() => {
-                  const { signOut } = require('../contexts/AuthContext');
                   signOut();
                 }}
                 className="w-full px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors duration-200"
