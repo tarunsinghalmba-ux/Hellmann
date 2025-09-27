@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, ArrowLeft, Database } from 'lucide-react';
+import Header from '../components/Header';
 import FiltersPanel from '../components/FiltersPanel';
 import DataTable from '../components/DataTable';
 import { exportFilteredDataToCSV } from '../utils/csv';
@@ -276,19 +277,14 @@ export default function Explore() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Header />
+      
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img 
-                src="/Logo Hellmann Worldwide Logistics RGB copy.png" 
-                alt="Hellmann Worldwide Logistics" 
-                className="h-10 w-auto"
-              />
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">Data Explorer</h1>
-                <p className="text-sm text-gray-600">Browse and filter all freight data</p>
-              </div>
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900">Data Explorer</h1>
+              <p className="text-sm text-gray-600">Browse and filter all freight data</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex gap-2">
@@ -312,6 +308,7 @@ export default function Explore() {
                 <ArrowLeft className="h-4 w-4" />
                 Back to Calculator
               </a>
+            </div>
             </div>
           </div>
         </div>

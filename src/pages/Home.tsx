@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Anchor } from 'lucide-react';
+import Header from '../components/Header';
 import InputsCard from '../components/InputsCard';
 import { ResultsThreeParts } from '../components/ResultsThreeParts';
 import { calculateThreeParts, toCsv, type CalcInput, type CalcResult } from '../utils/calc3parts';
@@ -121,21 +121,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-3">
-            <img 
-              src="/Logo Hellmann Worldwide Logistics RGB copy.png" 
-              alt="Hellmann Worldwide Logistics" 
-              className="h-12 w-auto"
-            />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Sea Freight Calculator</h1>
-              <p className="text-sm text-gray-600">Sea Freight Calculator</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Header />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
