@@ -2,9 +2,18 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
+interface UserRole {
+  id: string;
+  user_id: string;
+  role: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  userRole: string | null;
   loading: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
@@ -24,7 +33,30 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const fetchUserRole = async (userId: string) => {
+    if (!supabase) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching user role:', error);
+        setUserRole(null);
+      } else {
+        setUserRole(data?.role || null);
+      }
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+      setUserRole(null);
+    }
+  };
 
   useEffect(() => {
     if (!supabase) {
@@ -36,6 +68,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchUserRole(session.user.id);
+      } else {
+        setUserRole(null);
+      }
       setLoading(false);
     });
 
@@ -44,6 +81,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchUserRole(session.user.id);
+        } else {
+          setUserRole(null);
+        }
         setLoading(false);
       }
     );
@@ -79,12 +121,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     if (!supabase) return;
+    setUserRole(null);
     await supabase.auth.signOut();
   };
 
   const value = {
     user,
     session,
+    userRole,
     loading,
     signUp,
     signIn,
