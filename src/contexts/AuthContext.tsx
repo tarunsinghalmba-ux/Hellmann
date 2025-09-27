@@ -65,13 +65,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUserActive(false);
         }
       } else {
-        setUserRole(data?.role || 'Regular User');
+        setUserRole(data?.role || 'Regular');
         setUserActive(data?.active || false);
-        setIsSuperUser(data?.role === 'SuperUser' && data?.active === true);
+        setIsSuperUser(data?.role === 'Super Admin' && data?.active === true);
       }
     } catch (error) {
       console.error('Error fetching user role:', error);
-      setUserRole('Regular User');
+      setUserRole('Regular');
       setUserActive(false);
       setIsSuperUser(false);
     }

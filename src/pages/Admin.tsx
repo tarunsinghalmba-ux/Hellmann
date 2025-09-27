@@ -164,18 +164,18 @@ export default function Admin() {
                             onChange={(e) => setEditRole(e.target.value)}
                             className="text-sm border border-gray-300 rounded px-2 py-1"
                           >
-                            <option value="Regular User">Regular User</option>
-                            <option value="SuperUser">SuperUser</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Super Admin">Super Admin</option>
                           </select>
                         ) : (
                           <div className="flex items-center gap-2">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              user.role === 'SuperUser' 
+                              user.role === 'Super Admin' 
                                 ? 'bg-yellow-100 text-yellow-800' 
                                 : 'bg-blue-100 text-blue-800'
                             }`}>
-                              {user.role === 'SuperUser' && <Crown className="h-3 w-3 mr-1" />}
-                              {user.role || 'Regular User'}
+                              {user.role === 'Super Admin' && <Crown className="h-3 w-3 mr-1" />}
+                              {user.role || 'Regular'}
                             </span>
                           </div>
                         )}
@@ -257,7 +257,7 @@ export default function Admin() {
           <ul className="text-sm text-blue-800 space-y-1">
             <li>• View all users and their roles</li>
             <li>• Activate/deactivate user accounts</li>
-            <li>• Promote users to SuperUser or demote to Regular User</li>
+            <li>• Promote users to Super Admin or demote to Regular</li>
             <li>• Access to admin panel and user management</li>
           </ul>
         </div>
