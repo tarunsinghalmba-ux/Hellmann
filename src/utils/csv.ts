@@ -164,6 +164,9 @@ export async function exportResultsToCSV(results: CalculationResult[]): Promise<
 
   console.log('Total CSV rows generated:', rows.length);
   console.log('Last 10 rows:', rows.slice(-10));
+  console.log('=== COMPLETE CSV CONTENT ===');
+  console.log(rows.join('\n'));
+  console.log('=== END CSV CONTENT ===');
   console.log('Full CSV content:');
   console.log(rows.join('\n'));
   console.log('=== END CSV DEBUG ===');
