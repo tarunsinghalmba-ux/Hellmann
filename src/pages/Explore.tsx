@@ -309,8 +309,6 @@ export default function Explore() {
                 Back to Calculator
               </a>
             </div>
-            </div>
-          </div>
         </div>
       </div>
 
