@@ -136,12 +136,16 @@ export async function exportResultsToCSV(results: CalculationResult[]): Promise<
   const termsText = await fetchTermsAndConditions();
   if (termsText) {
     rows.push('');
-    rows.push('TERMS AND CONDITIONS');
+    rows.push(formatCSVRow(['TERMS AND CONDITIONS', '', '', '', '', '', '', '', '']));
     rows.push('');
     // Split terms text by lines and add each line as a separate row
     const termsLines = termsText.split('\n');
     termsLines.forEach(line => {
-      rows.push(formatCSVRow([line.trim(), '', '', '', '', '', '', '', '']));
+      if (line.trim()) {
+        rows.push(formatCSVRow([line.trim(), '', '', '', '', '', '', '', '']));
+      } else {
+        rows.push('');
+      }
     });
   }
   
