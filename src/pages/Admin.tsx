@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Crown, Users, Shield, Check, X, Edit2, Save, RotateCcw } from 'lucide-react';
+import { Crown, Users, Shield, Check, X, CreditCard as Edit2, Save, RotateCcw } from 'lucide-react';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
 
