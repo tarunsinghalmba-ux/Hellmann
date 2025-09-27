@@ -16,10 +16,13 @@ interface AuthContextType {
   session: Session | null;
   userRole: string | null;
   userActive: boolean | null;
+  isSuperUser: boolean;
   loading: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  updateUserRole: (userId: string, role: string, active: boolean) => Promise<{ error: any }>;
+  getAllUsers: () => Promise<{ data: any[], error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,6 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userActive, setUserActive] = useState<boolean | null>(null);
+  const [isSuperUser, setIsSuperUser] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
 
   const fetchUserRole = async (userId: string) => {
@@ -63,11 +67,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setUserRole(data?.role || 'Regular User');
         setUserActive(data?.active || false);
+        setIsSuperUser(data?.role === 'SuperUser' && data?.active === true);
       }
     } catch (error) {
       console.error('Error fetching user role:', error);
       setUserRole('Regular User');
       setUserActive(false);
+      setIsSuperUser(false);
     }
   };
 
@@ -99,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setUserRole(null);
           setUserActive(null);
-          setUserActive(null);
+          setIsSuperUser(false);
         }
         setLoading(false);
       }
@@ -138,7 +144,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!supabase) return;
     setUserRole(null);
     setUserActive(null);
+    setIsSuperUser(false);
     await supabase.auth.signOut();
+  };
+
+  const updateUserRole = async (userId: string, role: string, active: boolean) => {
+    if (!supabase || !isSuperUser) {
+      return { error: { message: 'Unauthorized: Only SuperUsers can update roles' } };
+    }
+
+    const { error } = await supabase
+      .from('user_roles')
+      .upsert({
+        user_id: userId,
+        role,
+        active,
+        updated_at: new Date().toISOString()
+      });
+
+    return { error };
+  };
+
+  const getAllUsers = async () => {
+    if (!supabase || !isSuperUser) {
+      return { data: [], error: { message: 'Unauthorized: Only SuperUsers can view all users' } };
+    }
+
+    const { data, error } = await supabase
+      .from('user_management')
+      .select('*')
+      .order('user_created_at', { ascending: false });
+
+    return { data: data || [], error };
   };
 
   const value = {
@@ -146,10 +183,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     userRole,
     userActive,
+    isSuperUser,
     loading,
     signUp,
     signIn,
     signOut,
+    updateUserRole,
+    getAllUsers,
   };
 
   return (

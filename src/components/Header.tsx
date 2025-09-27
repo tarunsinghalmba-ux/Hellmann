@@ -3,7 +3,7 @@ import { LogOut, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Header() {
-  const { user, userRole, userActive, signOut } = useAuth();
+  const { user, userRole, userActive, isSuperUser, signOut } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
@@ -34,10 +34,18 @@ export default function Header() {
                   {userRole && (
                     <span className="text-xs text-gray-500">
                       {userRole} {userActive === false && '(Deactivated)'}
-                    </span>
+                    {userRole} {isSuperUser && '👑'} {userActive === false && '(Deactivated)'}
                   )}
                 </div>
               </div>
+              {isSuperUser && (
+                <a
+                  href="/admin"
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors duration-200"
+                >
+                  Admin Panel
+                </a>
+              )}
               <button
                 onClick={handleSignOut}
                 className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200"
