@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
       
       if (error) {
         // If table doesn't exist or other error, default to Regular User
@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUserRole('Regular User');
         }
       } else {
-        setUserRole(data?.role || null);
+        setUserRole(data?.role || 'Regular User');
       }
     } catch (error) {
       console.error('Error fetching user role:', error);
