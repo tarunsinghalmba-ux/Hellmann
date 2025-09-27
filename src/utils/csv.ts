@@ -148,26 +148,6 @@ export async function exportResultsToCSV(results: CalculationResult[]): Promise<
       }
     });
   }
-  
-  // Fetch and append terms and conditions
-  const termsText = await fetchTermsAndConditions();
-  if (termsText) {
-    rows.push('');
-    rows.push(formatCSVRow(['TERMS AND CONDITIONS', '', '', '', '', '', '', '', '']));
-    rows.push('');
-    // Split terms text by lines and add each line as a separate row
-    const termsLines = termsText.split('\n');
-    termsLines.forEach(line => {
-      if (line.trim()) {
-        rows.push(formatCSVRow([line.trim(), '', '', '', '', '', '', '', '']));
-      } else {
-        rows.push('');
-      }
-    });
-  }
-  
-  downloadCSV(rows.join('\n'), 'sea-freight-calculation');
-}
 
 export function exportFilteredDataToCSV(data: any[], filename: string): void {
   if (!data.length) return;
