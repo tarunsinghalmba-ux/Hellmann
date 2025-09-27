@@ -20,11 +20,12 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
+  // Allow unauthenticated users to see the login screen
   if (!user) {
     return <Login />;
   }
 
-  // Check if user is deactivated
+  // Only check active status for authenticated users
   if (userActive === false) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -39,12 +40,23 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
             <p className="text-gray-600 mb-6">
               Your account has been deactivated. Please contact an administrator to activate your account.
             </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
-            >
-              Refresh Page
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={() => window.location.reload()}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
+              >
+                Refresh Page
+              </button>
+              <button
+                onClick={() => {
+                  const { signOut } = require('../contexts/AuthContext');
+                  signOut();
+                }}
+                className="w-full px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors duration-200"
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       </div>
