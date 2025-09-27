@@ -21,8 +21,8 @@ export default function Admin() {
   const [editRole, setEditRole] = useState<string>('');
   const [editActive, setEditActive] = useState<boolean>(false);
   const [updating, setUpdating] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deactivating, setDeactivating] = useState<string | null>(null);
+  const [deactivateConfirm, setDeactivateConfirm] = useState<string | null>(null);
 
   useEffect(() => {
     if (isSuperUser) {
@@ -77,33 +77,33 @@ export default function Admin() {
     setEditActive(false);
   };
 
-  const handleDeleteUser = async (userId: string, userEmail: string) => {
-    if (deleteConfirm !== userId) {
-      setDeleteConfirm(userId);
+  const handleDeactivateUser = async (userId: string, userEmail: string) => {
+    if (deactivateConfirm !== userId) {
+      setDeactivateConfirm(userId);
       return;
     }
 
-    setDeleting(userId);
+    setDeactivating(userId);
     try {
       const { error } = await deleteUser(userId);
       if (error) {
-        console.error('Error deleting user:', error);
-        alert('Error deleting user: ' + error.message);
+        console.error('Error deactivating user:', error);
+        alert('Error deactivating user: ' + error.message);
       } else {
-        alert(`User ${userEmail} has been successfully deleted.`);
+        alert(`User ${userEmail} has been successfully deactivated.`);
         await loadUsers(); // Refresh the list
       }
     } catch (error) {
-      console.error('Error deleting user:', error);
-      alert('Error deleting user');
+      console.error('Error deactivating user:', error);
+      alert('Error deactivating user');
     } finally {
-      setDeleting(null);
-      setDeleteConfirm(null);
+      setDeactivating(null);
+      setDeactivateConfirm(null);
     }
   };
 
-  const handleCancelDelete = () => {
-    setDeleteConfirm(null);
+  const handleCancelDeactivate = () => {
+    setDeactivateConfirm(null);
   };
 
   if (!isSuperUser) {
@@ -274,19 +274,19 @@ export default function Admin() {
                               <Edit2 className="h-4 w-4" />
                               Edit
                             </button>
-                            {deleteConfirm === user.id ? (
+                            {deactivateConfirm === user.id ? (
                               <div className="flex items-center gap-1">
                                 <button
-                                  onClick={() => handleDeleteUser(user.id, user.email)}
-                                  disabled={deleting === user.id}
+                                  onClick={() => handleDeactivateUser(user.id, user.email)}
+                                  disabled={deactivating === user.id}
                                   className="flex items-center gap-1 text-red-600 hover:text-red-900 disabled:opacity-50 text-xs bg-red-50 px-2 py-1 rounded"
                                 >
                                   <Trash2 className="h-3 w-3" />
-                                  Confirm Delete
+                                  Confirm Deactivate
                                 </button>
                                 <button
-                                  onClick={handleCancelDelete}
-                                  disabled={deleting === user.id}
+                                  onClick={handleCancelDeactivate}
+                                  disabled={deactivating === user.id}
                                   className="flex items-center gap-1 text-gray-600 hover:text-gray-900 disabled:opacity-50 text-xs"
                                 >
                                   <X className="h-3 w-3" />
@@ -295,12 +295,12 @@ export default function Admin() {
                               </div>
                             ) : (
                               <button
-                                onClick={() => handleDeleteUser(user.id, user.email)}
-                                disabled={deleting === user.id}
+                                onClick={() => handleDeactivateUser(user.id, user.email)}
+                                disabled={deactivating === user.id}
                                 className="flex items-center gap-1 text-red-600 hover:text-red-900 disabled:opacity-50"
                               >
                                 <Trash2 className="h-4 w-4" />
-                                Delete
+                                Deactivate
                               </button>
                             )}
                           </div>
@@ -320,7 +320,7 @@ export default function Admin() {
             <li>• View all users and their roles</li>
             <li>• Activate/deactivate user accounts</li>
             <li>• Promote users to Super Admin or demote to Regular</li>
-            <li>• Delete user accounts permanently</li>
+            <li>• Deactivate user accounts</li>
             <li>• Access to admin panel and user management</li>
           </ul>
         </div>
