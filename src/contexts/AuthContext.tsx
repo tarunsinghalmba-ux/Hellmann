@@ -145,7 +145,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUserRole(null);
     setUserActive(null);
     setIsSuperUser(false);
-    await supabase.auth.signOut();
+    
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.warn('Sign out warning:', error.message);
+      }
+    } catch (error) {
+      console.warn('Sign out failed, but clearing local state:', error);
+    }
   };
 
   const updateUserRole = async (userId: string, role: string, active: boolean) => {
