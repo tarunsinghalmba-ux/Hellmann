@@ -148,6 +148,9 @@ export async function exportResultsToCSV(results: CalculationResult[]): Promise<
       }
     });
   }
+
+  // Actually download the CSV file
+  downloadCSV(rows.join('\n'), 'sea-freight-calculation');
 }
 
 export function exportFilteredDataToCSV(data: any[], filename: string): void {
