@@ -13,12 +13,12 @@ interface ExportButtonsProps {
 export default function ExportButtons({ results, inputs, disabled = false }: ExportButtonsProps) {
   if (!results.length) return null;
 
-  const handleExportCSV = () => {
-    exportResultsToCSV(results);
+  const handleExportCSV = async () => {
+    await exportResultsToCSV(results);
   };
 
-  const handleExportPDF = () => {
-    exportResultsToPDF(results, inputs);
+  const handleExportPDF = async () => {
+    await exportResultsToPDF(results, inputs);
   };
 
   return (

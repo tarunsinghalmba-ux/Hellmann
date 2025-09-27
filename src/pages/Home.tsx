@@ -90,17 +90,19 @@ export default function Home() {
 
   const handleExportCSV = () => {
     if (!results) return;
-    const csv = toCsv(results);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sea-freight-rates-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    (async () => {
+      const csv = toCsv(results);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sea-freight-rates-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    })();
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (!results) return;
     const meta = {
       direction: inputs.direction,
@@ -114,7 +116,7 @@ export default function Home() {
       qty40HC: inputs.qty40HC,
       lclCbm: inputs.lclCbm
     };
-    exportPdf3Parts(results, meta);
+    await exportPdf3Parts(results, meta);
   };
 
   return (

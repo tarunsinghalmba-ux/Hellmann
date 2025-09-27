@@ -1,8 +1,34 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { CalcResult } from './calc3parts';
+import { supabase } from '../lib/supabase';
 
-export function exportPdf3Parts(res: CalcResult, meta: { direction: string; pol: string; pod: string; suburb: string; fromDate: string; toDate: string; equipment: string; }) {
+async function fetchTermsAndConditions(): Promise<string> {
+  try {
+    if (!supabase) {
+      console.error('Supabase client not initialized');
+      return '';
+    }
+
+    const { data, error } = await supabase
+      .from('t_c')
+      .select('terms_text')
+      .limit(1)
+      .single();
+
+    if (error) {
+      console.error('Error fetching terms and conditions:', error);
+      return '';
+    }
+
+    return data?.terms_text || '';
+  } catch (error) {
+    console.error('Error fetching terms and conditions:', error);
+    return '';
+  }
+}
+
+export async function exportPdf3Parts(res: CalcResult, meta: { direction: string; pol: string; pod: string; suburb: string; fromDate: string; toDate: string; equipment: string; }) {
   const doc = new jsPDF();
   
   // Header
@@ -73,6 +99,36 @@ export function exportPdf3Parts(res: CalcResult, meta: { direction: string; pol:
       y = 20;
     }
   });
+  
+  // Fetch and append terms and conditions
+  const termsText = await fetchTermsAndConditions();
+  if (termsText) {
+    // Add new page for terms and conditions
+    doc.addPage();
+    y = 20;
+    
+    // Terms and conditions header
+    doc.setFontSize(14);
+    doc.setTextColor(25, 43, 81);
+    doc.text('Terms and Conditions', 14, y);
+    y += 15;
+    
+    // Terms and conditions content
+    doc.setFontSize(9);
+    doc.setTextColor(0);
+    
+    // Split text into lines and handle page breaks
+    const lines = doc.splitTextToSize(termsText, 180); // 180mm width
+    
+    for (let i = 0; i < lines.length; i++) {
+      if (y > 270) { // Check if we need a new page
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(lines[i], 14, y);
+      y += 4;
+    }
+  }
   
   // Footer
   const pageCount = doc.getNumberOfPages();

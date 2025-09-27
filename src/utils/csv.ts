@@ -1,6 +1,32 @@
 import type { CalculationResult, LineItem } from '../types';
+import { supabase } from '../lib/supabase';
 
-export function exportResultsToCSV(results: CalculationResult[]): void {
+async function fetchTermsAndConditions(): Promise<string> {
+  try {
+    if (!supabase) {
+      console.error('Supabase client not initialized');
+      return '';
+    }
+
+    const { data, error } = await supabase
+      .from('t_c')
+      .select('terms_text')
+      .limit(1)
+      .single();
+
+    if (error) {
+      console.error('Error fetching terms and conditions:', error);
+      return '';
+    }
+
+    return data?.terms_text || '';
+  } catch (error) {
+    console.error('Error fetching terms and conditions:', error);
+    return '';
+  }
+}
+
+export async function exportResultsToCSV(results: CalculationResult[]): Promise<void> {
   const rows: string[] = [];
   
   // Headers
@@ -104,6 +130,19 @@ export function exportResultsToCSV(results: CalculationResult[]): void {
     
     // Empty row between currencies
     rows.push('');
+  }
+  
+  // Fetch and append terms and conditions
+  const termsText = await fetchTermsAndConditions();
+  if (termsText) {
+    rows.push('');
+    rows.push('TERMS AND CONDITIONS');
+    rows.push('');
+    // Split terms text by lines and add each line as a separate row
+    const termsLines = termsText.split('\n');
+    termsLines.forEach(line => {
+      rows.push(formatCSVRow([line.trim(), '', '', '', '', '', '', '', '']));
+    });
   }
   
   downloadCSV(rows.join('\n'), 'sea-freight-calculation');
