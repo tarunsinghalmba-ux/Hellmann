@@ -35,10 +35,16 @@ export default function Admin() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [deactivating, setDeactivating] = useState<string | null>(null);
   const [deactivateConfirm, setDeactivateConfirm] = useState<string | null>(null);
+  const [consolidatedPrices, setConsolidatedPrices] = useState<ConsolidatedPrice[]>([]);
+  const [loadingPrices, setLoadingPrices] = useState(false);
+  const [usdToAudRate, setUsdToAudRate] = useState<number>(1.5); // Default exchange rate
+  const [totalAudValue, setTotalAudValue] = useState<number>(0);
 
   useEffect(() => {
     if (isSuperUser) {
       loadUsers();
+      loadConsolidatedPrices();
+      loadConsolidatedPrices();
     }
   }, [isSuperUser]);
 
@@ -493,260 +499,6 @@ export default function Admin() {
           )}
         </div>
 
-        {/* Consolidated Pricing Panel */}
-        <div className="mt-8 bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-green-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Consolidated Pricing (AUD)</h2>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="text-sm text-gray-600">
-                  USD to AUD Rate: 
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.1"
-                    max="5"
-                    value={usdToAudRate}
-                    onChange={(e) => {
-                      const newRate = parseFloat(e.target.value) || 1.5;
-                      setUsdToAudRate(newRate);
-                      loadConsolidatedPrices();
-                    }}
-                    className="ml-2 w-20 px-2 py-1 border border-gray-300 rounded text-center"
-                  />
-                </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-green-50 rounded-lg">
-                  <TrendingUp className="h-4 w-4 text-green-600" />
-                  <span className="font-semibold text-green-800">
-                    Total: AUD {totalAudValue.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-                <button
-                  onClick={loadConsolidatedPrices}
-                  disabled={loadingPrices}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 transition-colors duration-200"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Refresh Prices
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {loadingPrices ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading consolidated prices...</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Source
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Description
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Route/Location
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Container Type
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Direction
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Original Price
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      AUD Price
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {consolidatedPrices.slice(0, 50).map((price) => (
-                    <tr key={price.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          price.source === 'Ocean' 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : price.source === 'Local'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-purple-100 text-purple-800'
-                        }`}>
-                          {price.source}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">{price.description}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {price.route}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {price.containerType}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          price.direction === 'import' 
-                            ? 'bg-orange-100 text-orange-800' 
-                            : 'bg-indigo-100 text-indigo-800'
-                        }`}>
-                          {price.direction?.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {price.originalCurrency} {price.originalPrice.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                        AUD {price.audPrice.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {consolidatedPrices.length > 50 && (
-                <div className="px-6 py-4 bg-gray-50 text-center text-sm text-gray-500">
-                  Showing top 50 of {consolidatedPrices.length} total prices
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Consolidated Pricing Panel */}
-        <div className="mt-8 bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-green-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Consolidated Pricing (AUD)</h2>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="text-sm text-gray-600">
-                  USD to AUD Rate: 
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.1"
-                    max="5"
-                    value={usdToAudRate}
-                    onChange={(e) => {
-                      const newRate = parseFloat(e.target.value) || 1.5;
-                      setUsdToAudRate(newRate);
-                      loadConsolidatedPrices();
-                    }}
-                    className="ml-2 w-20 px-2 py-1 border border-gray-300 rounded text-center"
-                  />
-                </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-green-50 rounded-lg">
-                  <TrendingUp className="h-4 w-4 text-green-600" />
-                  <span className="font-semibold text-green-800">
-                    Total: AUD {totalAudValue.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-                <button
-                  onClick={loadConsolidatedPrices}
-                  disabled={loadingPrices}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 transition-colors duration-200"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Refresh Prices
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {loadingPrices ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading consolidated prices...</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Source
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Description
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Route/Location
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Container Type
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Direction
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Original Price
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      AUD Price
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {consolidatedPrices.slice(0, 50).map((price) => (
-                    <tr key={price.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          price.source === 'Ocean' 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : price.source === 'Local'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-purple-100 text-purple-800'
-                        }`}>
-                          {price.source}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">{price.description}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {price.route}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {price.containerType}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          price.direction === 'import' 
-                            ? 'bg-orange-100 text-orange-800' 
-                            : 'bg-indigo-100 text-indigo-800'
-                        }`}>
-                          {price.direction?.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {price.originalCurrency} {price.originalPrice.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                        AUD {price.audPrice.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {consolidatedPrices.length > 50 && (
-                <div className="px-6 py-4 bg-gray-50 text-center text-sm text-gray-500">
-                  Showing top 50 of {consolidatedPrices.length} total prices
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
         <div className="mt-8 bg-blue-50 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-blue-900 mb-2">SuperUser Privileges</h3>
           <ul className="text-sm text-blue-800 space-y-1">
@@ -755,10 +507,6 @@ export default function Admin() {
             <li>• Promote users to Super Admin or demote to Regular</li>
             <li>• Deactivate user accounts</li>
             <li>• Access to admin panel and user management</li>
-            <li>• View consolidated pricing across all freight tables</li>
-            <li>• Convert USD ocean freight prices to AUD automatically</li>
-            <li>• View consolidated pricing across all freight tables</li>
-            <li>• Convert USD ocean freight prices to AUD automatically</li>
           </ul>
         </div>
       </div>
