@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import React, { useState, useEffect } from 'react';
 import { Crown, Users, Shield, Check, X, CreditCard as Edit2, Save, RotateCcw, Trash2, DollarSign, TrendingUp } from 'lucide-react';
 import Header from '../components/Header';
