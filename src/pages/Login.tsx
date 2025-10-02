@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Lock, Mail, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, UserPlus, LogIn, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,13 +14,31 @@ export default function Login() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resetPassword } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setMessage('');
     setLoading(true);
+
+    if (showForgotPassword) {
+      try {
+        const { error } = await resetPassword(email);
+        if (error) {
+          setError(error.message);
+        } else {
+          setMessage('Password reset email sent! Check your inbox for instructions.');
+          setShowForgotPassword(false);
+          setEmail('');
+        }
+      } catch (err: any) {
+        setError(err.message || 'An unexpected error occurred');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     if (isSignUp && password !== confirmPassword) {
       setError('Passwords do not match');
@@ -60,9 +79,19 @@ export default function Login() {
 
   const toggleMode = () => {
     setIsSignUp(!isSignUp);
+    setShowForgotPassword(false);
     setError('');
     setMessage('');
     setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+  };
+
+  const toggleForgotPassword = () => {
+    setShowForgotPassword(!showForgotPassword);
+    setIsSignUp(false);
+    setError('');
+    setMessage('');
     setPassword('');
     setConfirmPassword('');
   };
@@ -77,12 +106,14 @@ export default function Login() {
             className="mx-auto h-16 w-auto mb-4"
           />
           <h2 className="text-3xl font-bold text-gray-900">
-            {isSignUp ? 'Create Account' : 'Sign In'}
+            {showForgotPassword ? 'Reset Password' : (isSignUp ? 'Create Account' : 'Sign In')}
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            {isSignUp 
-              ? 'Create an account to access the Sea Freight Calculator'
-              : 'Access the Sea Freight Calculator'
+            {showForgotPassword
+              ? 'Enter your email address to receive password reset instructions'
+              : (isSignUp 
+                ? 'Create an account to access the Sea Freight Calculator'
+                : 'Access the Sea Freight Calculator')
             }
           </p>
         </div>
@@ -123,7 +154,8 @@ export default function Login() {
               </div>
             </div>
 
-            <div>
+            {!showForgotPassword && (
+              <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                 Password
               </label>
@@ -154,9 +186,10 @@ export default function Login() {
                   )}
                 </button>
               </div>
-            </div>
+              </div>
+            )}
 
-            {isSignUp && (
+            {isSignUp && !showForgotPassword && (
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
                   Confirm Password
@@ -198,27 +231,51 @@ export default function Login() {
                 className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200"
               >
                 <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                  {isSignUp ? (
+                  {showForgotPassword ? (
+                    <Mail className="h-5 w-5 text-blue-500 group-hover:text-blue-400" />
+                  ) : isSignUp ? (
                     <UserPlus className="h-5 w-5 text-blue-500 group-hover:text-blue-400" />
                   ) : (
                     <LogIn className="h-5 w-5 text-blue-500 group-hover:text-blue-400" />
                   )}
                 </span>
-                {loading ? 'Please wait...' : (isSignUp ? 'Create Account' : 'Sign In')}
+                {loading ? 'Please wait...' : (showForgotPassword ? 'Send Reset Email' : (isSignUp ? 'Create Account' : 'Sign In'))}
               </button>
             </div>
 
             <div className="text-center">
-              <button
-                type="button"
-                onClick={toggleMode}
-                className="text-sm text-blue-600 hover:text-blue-500 transition-colors duration-200"
-              >
-                {isSignUp 
-                  ? 'Already have an account? Sign in' 
-                  : "Don't have an account? Sign up"
-                }
-              </button>
+              {showForgotPassword ? (
+                <button
+                  type="button"
+                  onClick={toggleForgotPassword}
+                  className="flex items-center justify-center gap-2 text-sm text-blue-600 hover:text-blue-500 transition-colors duration-200 mx-auto"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Sign In
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={toggleMode}
+                    className="block text-sm text-blue-600 hover:text-blue-500 transition-colors duration-200 mx-auto"
+                  >
+                    {isSignUp 
+                      ? 'Already have an account? Sign in' 
+                      : "Don't have an account? Sign up"
+                    }
+                  </button>
+                  {!isSignUp && (
+                    <button
+                      type="button"
+                      onClick={toggleForgotPassword}
+                      className="block text-sm text-gray-600 hover:text-gray-500 transition-colors duration-200 mx-auto"
+                    >
+                      Forgot your password?
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </form>
         </div>
