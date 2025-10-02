@@ -61,29 +61,6 @@ const SummaryPanel: React.FC<{ data: CalcResult; usdToAudRate: number }> = ({ da
           </div>
         </div>
       </div>
-      
-      <div className="bg-white rounded-lg p-3 border border-gray-200">
-        <div className="text-xs text-gray-600 space-y-1">
-          <div className="flex justify-between">
-            <span>Ocean Freight (converted from USD):</span>
-            <span><Money value={oceanAUDTotal} currency="AUD" /></span>
-          </div>
-          <div className="flex justify-between">
-            <span>Local Charges (AUD):</span>
-            <span><Money value={localsAUDTotal} currency="AUD" /></span>
-          </div>
-          <div className="flex justify-between">
-            <span>Transport (AUD):</span>
-            <span><Money value={deliveryAUDTotal} currency="AUD" /></span>
-          </div>
-          <div className="border-t border-gray-200 pt-1 mt-2">
-            <div className="flex justify-between font-semibold">
-              <span>Total (AUD):</span>
-              <span><Money value={netTotalAUD} currency="AUD" /></span>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
