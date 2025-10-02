@@ -68,6 +68,24 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
   // Default USD to AUD conversion rate - in a real app, this would come from an API
   const usdToAudRate = 1.52; // You can make this dynamic later
 
+  // Check if we have any results to show
+  const hasResults = data.oceanUSD.items.length > 0 || data.localsAUD.items.length > 0 || data.deliveryAUD.items.length > 0;
+  
+  // If no results at all, show a message
+  if (!hasResults) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-8 text-center">
+        <div className="text-gray-500 mb-4">
+          <Calculator className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Results Found</h3>
+          <p className="text-gray-600">
+            No matching rates found for the selected criteria and validity dates. 
+            Please try adjusting your search parameters or date range.
+          </p>
+        </div>
+      </div>
+    );
+  }
   const cards: Array<{ key: keyof CalcResult; accent: string }> = [
     { key: 'oceanUSD', accent: 'border-blue-500' },
     { key: 'localsAUD', accent: 'border-emerald-500' },
@@ -80,6 +98,12 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
       {cards.map(({ key, accent }) => {
         const s = data[key];
         const empty = !s.items.length;
+        
+        // Don't render empty sections
+        if (empty) {
+          return null;
+        }
+        
         return (
           <div key={key} className={`rounded-2xl border-2 p-6 shadow-sm bg-white ${accent}`}>
             <div className="flex items-center justify-between mb-4">
@@ -93,38 +117,32 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
                 </div>
               </div>
             </div>
-            {empty ? (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                <p className="text-sm text-yellow-800">{emptyHints.shift() ?? 'No matching rows for this section.'}</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="text-left text-gray-500 border-b border-gray-200">
-                    <tr>
-                      <th className="py-2 pr-4 font-medium">Description</th>
-                      <th className="py-2 pr-4 font-medium">Unit</th>
-                      <th className="py-2 pr-4 font-medium text-right">Qty</th>
-                      <th className="py-2 pr-4 font-medium text-right">Rate</th>
-                      <th className="py-2 font-medium text-right">Total</th>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="text-left text-gray-500 border-b border-gray-200">
+                  <tr>
+                    <th className="py-2 pr-4 font-medium">Description</th>
+                    <th className="py-2 pr-4 font-medium">Unit</th>
+                    <th className="py-2 pr-4 font-medium text-right">Qty</th>
+                    <th className="py-2 pr-4 font-medium text-right">Rate</th>
+                    <th className="py-2 font-medium text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {s.items.map((i, idx) => (
+                    <tr key={idx} className="border-b border-gray-100">
+                      <td className="py-2 pr-4">
+                        {i.label}
+                      </td>
+                      <td className="py-2 pr-4 text-gray-600">{i.unit ?? ''}</td>
+                      <td className="py-2 pr-4 text-right">{i.qty}</td>
+                      <td className="py-2 pr-4 text-right"><Money value={i.rate} currency={s.currency} /></td>
+                      <td className="py-2 font-medium text-right"><Money value={i.total} currency={s.currency} /></td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {s.items.map((i, idx) => (
-                      <tr key={idx} className="border-b border-gray-100">
-                        <td className="py-2 pr-4">
-                          {i.label}
-                        </td>
-                        <td className="py-2 pr-4 text-gray-600">{i.unit ?? ''}</td>
-                        <td className="py-2 pr-4 text-right">{i.qty}</td>
-                        <td className="py-2 pr-4 text-right"><Money value={i.rate} currency={s.currency} /></td>
-                        <td className="py-2 font-medium text-right"><Money value={i.total} currency={s.currency} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         );
       })}
