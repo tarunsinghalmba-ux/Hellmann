@@ -5,6 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
 import Explore from './pages/Explore';
 import Admin from './pages/Admin';
+import ResetPassword from './pages/ResetPassword';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
               <Admin />
             </ProtectedRoute>
           } />
+          <Route path="/reset-password" element={<ResetPassword />} />
         </Routes>
       </Router>
     </AuthProvider>
