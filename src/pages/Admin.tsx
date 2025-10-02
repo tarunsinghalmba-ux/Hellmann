@@ -231,6 +231,173 @@ export default function Admin() {
     }
   };
 
+  const loadConsolidatedPrices = async () => {
+    setLoadingPrices(true);
+    try {
+      const consolidated: ConsolidatedPrice[] = [];
+
+      // Load Ocean Freight (USD -> AUD conversion)
+      try {
+        const { data: oceanData } = await selectWithFallback(TABLE_KEYS.ocean, (q) =>
+          q.select('record_id,port_of_loading,port_of_discharge,direction,20gp,40gp_40hc,currency')
+            .limit(100)
+        );
+
+        oceanData?.forEach(item => {
+          const price20gp = parseFloat(item['20gp']) || 0;
+          const price40gp = parseFloat(item['40gp_40hc']) || 0;
+
+          if (price20gp > 0) {
+            consolidated.push({
+              id: `ocean-20gp-${item.record_id}`,
+              source: 'Ocean',
+              description: `Ocean Freight - ${item.port_of_loading} to ${item.port_of_discharge}`,
+              originalPrice: price20gp,
+              originalCurrency: item.currency || 'USD',
+              audPrice: item.currency === 'USD' ? price20gp * usdToAudRate : price20gp,
+              route: `${item.port_of_loading} → ${item.port_of_discharge}`,
+              containerType: '20GP',
+              direction: item.direction
+            });
+          }
+
+          if (price40gp > 0) {
+            consolidated.push({
+              id: `ocean-40gp-${item.record_id}`,
+              source: 'Ocean',
+              description: `Ocean Freight - ${item.port_of_loading} to ${item.port_of_discharge}`,
+              originalPrice: price40gp,
+              originalCurrency: item.currency || 'USD',
+              audPrice: item.currency === 'USD' ? price40gp * usdToAudRate : price40gp,
+              route: `${item.port_of_loading} → ${item.port_of_discharge}`,
+              containerType: '40GP/40HC',
+              direction: item.direction
+            });
+          }
+        });
+      } catch (error) {
+        console.error('Error loading ocean freight prices:', error);
+      }
+
+      // Load Local Charges (already in AUD)
+      try {
+        const { data: localData } = await selectWithFallback(TABLE_KEYS.local, (q) =>
+          q.select('record_id,port_of_discharge,direction,charge_description,20gp,40gp_40hc,per_shipment_charge,currency')
+            .limit(100)
+        );
+
+        localData?.forEach(item => {
+          const price20gp = parseFloat(item['20gp']) || 0;
+          const price40gp = parseFloat(item['40gp_40hc']) || 0;
+          const perShipment = parseFloat(item.per_shipment_charge) || 0;
+
+          if (price20gp > 0) {
+            consolidated.push({
+              id: `local-20gp-${item.record_id}`,
+              source: 'Local',
+              description: item.charge_description || 'Local Charge',
+              originalPrice: price20gp,
+              originalCurrency: item.currency || 'AUD',
+              audPrice: price20gp,
+              route: item.port_of_discharge,
+              containerType: '20GP',
+              direction: item.direction
+            });
+          }
+
+          if (price40gp > 0) {
+            consolidated.push({
+              id: `local-40gp-${item.record_id}`,
+              source: 'Local',
+              description: item.charge_description || 'Local Charge',
+              originalPrice: price40gp,
+              originalCurrency: item.currency || 'AUD',
+              audPrice: price40gp,
+              route: item.port_of_discharge,
+              containerType: '40GP/40HC',
+              direction: item.direction
+            });
+          }
+
+          if (perShipment > 0) {
+            consolidated.push({
+              id: `local-shipment-${item.record_id}`,
+              source: 'Local',
+              description: item.charge_description || 'Local Charge',
+              originalPrice: perShipment,
+              originalCurrency: item.currency || 'AUD',
+              audPrice: perShipment,
+              route: item.port_of_discharge,
+              containerType: 'Per Shipment',
+              direction: item.direction
+            });
+          }
+        });
+      } catch (error) {
+        console.error('Error loading local charges:', error);
+      }
+
+      // Load Transport (already in AUD)
+      try {
+        const { data: transportData } = await selectWithFallback(TABLE_KEYS.transport, (q) =>
+          q.select('record_id,pick_up_location,delivery_location,direction,charge_description,20gp,40gp_40hc,currency')
+            .limit(100)
+        );
+
+        transportData?.forEach(item => {
+          const price20gp = parseFloat(item['20gp']) || 0;
+          const price40gp = parseFloat(item['40gp_40hc']) || 0;
+
+          if (price20gp > 0) {
+            consolidated.push({
+              id: `transport-20gp-${item.record_id}`,
+              source: 'Transport',
+              description: item.charge_description || 'Transport',
+              originalPrice: price20gp,
+              originalCurrency: item.currency || 'AUD',
+              audPrice: price20gp,
+              route: item.direction === 'import' 
+                ? `To ${item.delivery_location}` 
+                : `From ${item.pick_up_location}`,
+              containerType: '20GP',
+              direction: item.direction
+            });
+          }
+
+          if (price40gp > 0) {
+            consolidated.push({
+              id: `transport-40gp-${item.record_id}`,
+              source: 'Transport',
+              description: item.charge_description || 'Transport',
+              originalPrice: price40gp,
+              originalCurrency: item.currency || 'AUD',
+              audPrice: price40gp,
+              route: item.direction === 'import' 
+                ? `To ${item.delivery_location}` 
+                : `From ${item.pick_up_location}`,
+              containerType: '40GP/40HC',
+              direction: item.direction
+            });
+          }
+        });
+      } catch (error) {
+        console.error('Error loading transport prices:', error);
+      }
+
+      // Sort by AUD price descending
+      consolidated.sort((a, b) => b.audPrice - a.audPrice);
+
+      // Calculate total AUD value
+      const total = consolidated.reduce((sum, item) => sum + item.audPrice, 0);
+      setTotalAudValue(total);
+      setConsolidatedPrices(consolidated);
+    } catch (error) {
+      console.error('Error loading consolidated prices:', error);
+    } finally {
+      setLoadingPrices(false);
+    }
+  };
+
   const handleEditUser = (user: UserData) => {
     setEditingUser(user.id);
     setEditRole(user.role || 'Regular User');
