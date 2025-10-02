@@ -14,9 +14,30 @@ export default function ResetPassword() {
   const [validSession, setValidSession] = useState(false);
 
   useEffect(() => {
-    // Check if we have a valid session for password reset
+    // Handle Supabase hash-based redirect and check for valid session
     const checkSession = async () => {
       if (!supabase) return;
+      
+      // Handle hash parameters from Supabase redirect
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      
+      if (accessToken && refreshToken) {
+        // Set the session using the tokens from the URL
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+        
+        if (error) {
+          setError('Invalid or expired reset link. Please request a new password reset.');
+          return;
+        }
+        
+        // Clear the hash from URL for security
+        window.history.replaceState(null, '', window.location.pathname);
+      }
       
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
