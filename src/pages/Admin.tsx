@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Crown, Users, Shield, Check, X, CreditCard as Edit2, Save, RotateCcw, Trash2, DollarSign, TrendingUp } from 'lucide-react';
+import { Crown, Users, Shield, Check, X, CreditCard as Edit2, Save, RotateCcw, Trash2 } from 'lucide-react';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
-import { selectWithFallback, TABLE_KEYS } from '../lib/tableMap';
 
 interface UserData {
   id: string;
@@ -36,16 +35,10 @@ export default function Admin() {
   const [updating, setUpdating] = useState<string | null>(null);
   const [deactivating, setDeactivating] = useState<string | null>(null);
   const [deactivateConfirm, setDeactivateConfirm] = useState<string | null>(null);
-  const [consolidatedPrices, setConsolidatedPrices] = useState<ConsolidatedPrice[]>([]);
-  const [loadingPrices, setLoadingPrices] = useState(false);
-  const [usdToAudRate, setUsdToAudRate] = useState<number>(1.5); // Default exchange rate
-  const [totalAudValue, setTotalAudValue] = useState<number>(0);
 
   useEffect(() => {
     if (isSuperUser) {
       loadUsers();
-      loadConsolidatedPrices();
-      loadConsolidatedPrices();
     }
   }, [isSuperUser]);
 
