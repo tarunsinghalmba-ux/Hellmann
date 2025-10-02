@@ -34,6 +34,10 @@ export default function Home() {
   const [results, setResults] = useState<CalcResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [sqlQueries, setSqlQueries] = useState<string[]>([]);
+  const [consolidatedPrices, setConsolidatedPrices] = useState<ConsolidatedPrice[]>([]);
+  const [loadingPrices, setLoadingPrices] = useState(false);
+  const [usdToAudRate, setUsdToAudRate] = useState<number>(1.5);
+  const [totalAudValue, setTotalAudValue] = useState<number>(0);
 
   useEffect(() => {
     loadConsolidatedPrices();
