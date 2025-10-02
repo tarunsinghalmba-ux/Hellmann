@@ -21,6 +21,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error: any }>;
   updateUserRole: (userId: string, role: string, active: boolean) => Promise<{ error: any }>;
   getAllUsers: () => Promise<{ data: any[], error: any }>;
   deleteUser: (userId: string) => Promise<{ error: any }>;
@@ -161,6 +162,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const resetPassword = async (email: string) => {
+    if (!supabase) {
+      return { error: { message: 'Supabase client not initialized' } };
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    return { error };
+  };
+
   const updateUserRole = async (userId: string, role: string, active: boolean) => {
     if (!supabase || !isSuperUser) {
       return { error: { message: 'Unauthorized: Only SuperUsers can update roles' } };
@@ -218,6 +231,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUp,
     signIn,
     signOut,
+    resetPassword,
     updateUserRole,
     getAllUsers,
     deleteUser,
