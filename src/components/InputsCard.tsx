@@ -227,7 +227,7 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
       pod: '',
       point: '',
       validityFrom: new Date().toISOString().split('T')[0],
-      validityTo: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      validityTo: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0],
       qty20: 0,
       qty40: 0,
       qty40HC: 0,
