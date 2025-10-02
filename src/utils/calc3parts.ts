@@ -48,6 +48,10 @@ export interface CalcResult {
   oceanUSD: Section; 
   localsAUD: Section; 
   deliveryAUD: Section; 
+  validityPeriod: {
+    from: string;
+    to: string;
+  };
   sqlQueries: string[];
 }
 
@@ -588,7 +592,16 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     subtotal: subTotal(delItems) 
   };
 
-  return { oceanUSD, localsAUD, deliveryAUD, sqlQueries: queries };
+  return { 
+    oceanUSD, 
+    localsAUD, 
+    deliveryAUD, 
+    validityPeriod: {
+      from: fromDate,
+      to: toDate
+    },
+    sqlQueries: queries 
+  };
 }
 
 function getEquipmentSummary(qty20: number, qty40: number, qty40HC: number, lclCbm: number): string {

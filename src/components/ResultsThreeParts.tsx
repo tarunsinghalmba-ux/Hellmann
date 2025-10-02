@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calculator, DollarSign } from 'lucide-react';
+import { Calculator, DollarSign, Calendar } from 'lucide-react';
 import type { CalcResult } from '../utils/calc3parts';
 
 const Money: React.FC<{ value: number; currency: string }> = ({ value, currency }) => (
@@ -18,6 +18,12 @@ const SummaryPanel: React.FC<{ data: CalcResult; usdToAudRate: number }> = ({ da
       <div className="flex items-center gap-3 mb-4">
         <Calculator className="h-6 w-6 text-blue-600" />
         <h2 className="text-xl font-bold text-gray-900">Calculation Summary</h2>
+        <div className="flex items-center gap-2 ml-4">
+          <Calendar className="h-4 w-4 text-gray-600" />
+          <span className="text-sm font-medium text-gray-700">
+            Valid: {new Date(data.validityPeriod.from).toLocaleDateString()} - {new Date(data.validityPeriod.to).toLocaleDateString()}
+          </span>
+        </div>
         <div className="flex items-center gap-2 ml-auto">
           <DollarSign className="h-4 w-4 text-green-600" />
           <span className="text-sm font-medium text-gray-700">
