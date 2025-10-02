@@ -40,10 +40,6 @@ export default function Admin() {
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [usdToAudRate, setUsdToAudRate] = useState<number>(1.5); // Default exchange rate
   const [totalAudValue, setTotalAudValue] = useState<number>(0);
-  const [consolidatedPrices, setConsolidatedPrices] = useState<ConsolidatedPrice[]>([]);
-  const [loadingPrices, setLoadingPrices] = useState(false);
-  const [usdToAudRate, setUsdToAudRate] = useState<number>(1.5); // Default exchange rate
-  const [totalAudValue, setTotalAudValue] = useState<number>(0);
 
   useEffect(() => {
     if (isSuperUser) {
