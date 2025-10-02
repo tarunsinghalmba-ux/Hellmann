@@ -152,8 +152,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) {
         console.warn('Sign out warning:', error.message);
       }
+      // Redirect to home page after sign out
+      window.location.href = '/';
     } catch (error) {
       console.warn('Sign out failed, but clearing local state:', error);
+      // Still redirect to home page even if sign out failed
+      window.location.href = '/';
     }
   };
 
