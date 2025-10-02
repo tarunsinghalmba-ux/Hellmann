@@ -81,7 +81,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const transitTimeFilter = (input.transitTime && parseInt(input.transitTime) > 0) ? ` AND "transit_time" = ${parseInt(input.transitTime)}` : '';
     const serviceTypeFilter = input.serviceType ? ` AND UPPER("service_type") = UPPER('${input.serviceType}')` : '';
     const dangerousGoodsFilter = input.dangerousGoods === true ? ` AND "dg" = 'Yes'` : input.dangerousGoods === false ? ` AND "dg" = 'No'` : '';
-    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","currency","mode","carrier","transit_time","service_type","dg" FROM "ocean_freight" WHERE UPPER("port_of_loading") = UPPER('${pol}') AND UPPER("port_of_discharge") = UPPER('${pod}') AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter} LIMIT 200`;
+    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","currency","mode","carrier","transit_time","service_type","dg","effective_date","valid_until" FROM "ocean_freight" WHERE UPPER("port_of_loading") = UPPER('${pol}') AND UPPER("port_of_discharge") = UPPER('${pod}') AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter} LIMIT 200`;
     queries.push(oceanQuery);
     
     console.log('=== OCEAN FREIGHT QUERY ===');
@@ -127,8 +127,20 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.log('- Raw data:', ocean);
     console.log('===========================');
     
-    // Process each container type separately
+    // Process each container type separately with validity date enforcement
     (ocean ?? []).forEach((r: any) => {
+      // Double-check validity dates on each record
+      const effectiveDate = new Date(r.effective_date);
+      const validUntilDate = new Date(r.valid_until);
+      const fromDateObj = new Date(fromDate);
+      const toDateObj = new Date(toDate);
+      
+      // Skip if record doesn't fall within the requested date range
+      if (effectiveDate > toDateObj || validUntilDate < fromDateObj) {
+        console.log(`Skipping ocean record due to date mismatch: ${r.effective_date} - ${r.valid_until}`);
+        return;
+      }
+      
       // 20GP containers
       if (qty20 > 0) {
         const rate = parseFloat(r['20gp']) || 0;
@@ -212,7 +224,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
   // 2) LOCALS AUD (mandatory only if column exists)
   let localsItems: LineItem[] = [];
   try {
-    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","currency" FROM "local" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("port_of_discharge") = UPPER('${direction === 'import' ? pod : pol}') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}' LIMIT 500`;
+    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","currency","effective_date","valid_until" FROM "local" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("port_of_discharge") = UPPER('${direction === 'import' ? pod : pol}') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}' LIMIT 500`;
     queries.push(localsQuery);
     
     console.log('=== LOCAL CHARGES QUERY ===');
@@ -233,8 +245,20 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.log('- Raw data:', locals);
     console.log('===========================');
     
-    // Process local charges for each container type
+    // Process local charges for each container type with validity date enforcement
     (locals ?? []).forEach((r: any) => {
+      // Double-check validity dates on each record
+      const effectiveDate = new Date(r.effective_date);
+      const validUntilDate = new Date(r.valid_until);
+      const fromDateObj = new Date(fromDate);
+      const toDateObj = new Date(toDate);
+      
+      // Skip if record doesn't fall within the requested date range
+      if (effectiveDate > toDateObj || validUntilDate < fromDateObj) {
+        console.log(`Skipping local record due to date mismatch: ${r.effective_date} - ${r.valid_until}`);
+        return;
+      }
+      
       // Per shipment charges (apply once regardless of container count)
       if (r.per_shipment_charge && parseFloat(r.per_shipment_charge) > 0) {
         const rate = parseFloat(r.per_shipment_charge);
@@ -330,8 +354,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const vehicleTypeFilter = input.vehicleType ? ` AND UPPER("vehicle_type") = UPPER('${input.vehicleType}')` : '';
     const transportVendorFilter = input.transportVendor ? ` AND UPPER("transport_vendor") = UPPER('${input.transportVendor}')` : '';
     const transportQuery = direction === 'import' 
-      ? `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("delivery_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter} LIMIT 200`
-      : `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("pick_up_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter} LIMIT 200`;
+      ? `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("delivery_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter} LIMIT 200`
+      : `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("pick_up_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter} LIMIT 200`;
     queries.push(transportQuery);
     
     console.log('=== TRANSPORT QUERY ===');
@@ -364,8 +388,20 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.log('- Raw data:', transport);
     console.log('=======================');
     
-    // Process transport charges for each container type
+    // Process transport charges for each container type with validity date enforcement
     (transport ?? []).forEach((r: any) => {
+      // Double-check validity dates on each record
+      const effectiveDate = new Date(r.effective_date);
+      const validUntilDate = new Date(r.valid_until);
+      const fromDateObj = new Date(fromDate);
+      const toDateObj = new Date(toDate);
+      
+      // Skip if record doesn't fall within the requested date range
+      if (effectiveDate > toDateObj || validUntilDate < fromDateObj) {
+        console.log(`Skipping transport record due to date mismatch: ${r.effective_date} - ${r.valid_until}`);
+        return;
+      }
+      
       const baseLabel = r.charge_description || (direction === 'import' 
         ? `${r.delivery_location ?? suburb} delivery` 
         : `${r.pick_up_location ?? suburb} pickup`);
