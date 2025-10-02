@@ -14,7 +14,11 @@ const initialInputs: CalculationInputs = {
   pod: '',
   point: '',
   validityFrom: new Date().toISOString().split('T')[0],
-  validityTo: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0],
+  validityTo: (() => {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return lastDay.toISOString().split('T')[0];
+  })(),
   qty20: 0,
   qty40: 0,
   qty40HC: 0,
