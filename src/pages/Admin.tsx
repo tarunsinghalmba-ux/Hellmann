@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Crown, Users, Shield, Check, X, CreditCard as Edit2, Save, RotateCcw, Trash2 } from 'lucide-react';
 import Header from '../components/Header';
 import { useAuth } from '../contexts/AuthContext';
+import { selectWithFallback, TABLE_KEYS } from '../lib/tableMap';
 
 interface UserData {
   id: string;
