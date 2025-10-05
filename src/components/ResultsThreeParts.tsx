@@ -109,12 +109,15 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
       {cards.map(({ key, accent }) => {
         const s = data[key];
         const empty = !s.items.length;
-        
+
         // Don't render empty sections
         if (empty) {
           return null;
         }
-        
+
+        // Hide subtotal for ocean freight when there are multiple records
+        const showSubtotal = !(key === 'oceanUSD' && oceanFreightRecordCount > 1);
+
         return (
           <div key={key} className={`rounded-2xl border-2 p-6 shadow-sm bg-white ${accent}`}>
             <div className="flex items-center justify-between mb-4">
@@ -122,11 +125,13 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
                 <h3 className="text-lg font-semibold text-gray-900">{s.title}</h3>
                 {s.subtitle && <p className="text-sm text-gray-600">{s.subtitle}</p>}
               </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-gray-900">
-                  <Money value={s.subtotal} currency={s.currency} />
+              {showSubtotal && (
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-gray-900">
+                    <Money value={s.subtotal} currency={s.currency} />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
