@@ -270,6 +270,27 @@ export async function exportPdf3Parts(res: CalcResult, meta: { direction: string
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
+    
+    // Add watermark
+    doc.saveGraphicsState();
+    doc.setGState(new doc.GState({ opacity: 0.1 }));
+    doc.setTextColor(128, 128, 128);
+    doc.setFontSize(24);
+    
+    // Calculate center position and rotate text
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const centerX = pageWidth / 2;
+    const centerY = pageHeight / 2;
+    
+    // Rotate and add watermark text
+    doc.text('HWL Internal Quotations Indicative Rates only', centerX, centerY, {
+      angle: 45,
+      align: 'center'
+    });
+    
+    doc.restoreGraphicsState();
+    
     doc.setFontSize(8);
     doc.setTextColor(100);
     doc.text(`Page ${i} of ${pageCount}`, 14, 285);
