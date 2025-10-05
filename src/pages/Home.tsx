@@ -285,6 +285,15 @@ export default function Home() {
 
   const handleExportPDF = async () => {
     if (!results) return;
+    
+    // Create equipment summary
+    const equipmentParts = [];
+    if (inputs.qty20 > 0) equipmentParts.push(`${inputs.qty20}x20GP`);
+    if (inputs.qty40 > 0) equipmentParts.push(`${inputs.qty40}x40GP`);
+    if (inputs.qty40HC > 0) equipmentParts.push(`${inputs.qty40HC}x40HC`);
+    if (inputs.lclCbm > 0) equipmentParts.push(`${inputs.lclCbm}CBM`);
+    const equipmentSummary = equipmentParts.join(', ') || 'No equipment';
+    
     const meta = {
       direction: inputs.direction,
       pol: inputs.pol,
@@ -292,10 +301,7 @@ export default function Home() {
       suburb: inputs.point,
       fromDate: inputs.validityFrom,
       toDate: inputs.validityTo,
-      qty20: inputs.qty20,
-      qty40: inputs.qty40,
-      qty40HC: inputs.qty40HC,
-      lclCbm: inputs.lclCbm
+      equipment: equipmentSummary
     };
     await exportPdf3Parts(results, meta);
   };
