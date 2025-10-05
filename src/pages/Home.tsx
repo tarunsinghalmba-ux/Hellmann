@@ -11,7 +11,7 @@ import type { CalculationInputs, Equipment } from '../types';
 const initialInputs: CalculationInputs = {
   direction: 'export',
   pol: [],
-  pod: '',
+  pod: [],
   point: '',
   validityFrom: new Date().toISOString().split('T')[0],
   validityTo: (() => {

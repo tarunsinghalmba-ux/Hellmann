@@ -5,7 +5,7 @@ import type { Direction, Equipment, OceanRow, LocalRow, TransportRow } from '../
 export interface CalcInput {
   direction: Direction;
   pol: string | string[]; // Port of Loading (supports multi-select)
-  pod: string; // Port of Discharge
+  pod: string | string[]; // Port of Discharge (supports multi-select)
   suburb: string; // Delivery point for import, Pickup point for export
   fromDate: string; // YYYY-MM-DD
   toDate: string;   // YYYY-MM-DD
@@ -66,12 +66,14 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
   const { direction, pol, pod, suburb, fromDate, toDate, qty20, qty40, qty40HC, lclCbm = 0 } = input;
   const queries: string[] = [];
   const polArray = Array.isArray(pol) ? pol : [pol];
+  const podArray = Array.isArray(pod) ? pod : [pod];
   const polDisplay = polArray.join(', ');
+  const podDisplay = podArray.join(', ');
 
   console.log('=== CALCULATION INPUT ===');
   console.log('Direction:', direction);
   console.log('POL:', polDisplay);
-  console.log('POD:', pod);
+  console.log('POD:', podDisplay);
   console.log('Suburb:', suburb);
   console.log('Date Range:', fromDate, 'to', toDate);
   console.log('20GP Quantity:', qty20);
@@ -93,7 +95,10 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const polFilter = polArray.length > 1
       ? ` AND UPPER("port_of_loading") IN (${polArray.map(p => `UPPER('${p}')`).join(',')})`
       : ` AND UPPER("port_of_loading") = UPPER('${polArray[0]}')`;
-    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","currency","mode","carrier","transit_time","service_type","dg","effective_date","valid_until" FROM "ocean_freight" WHERE ${polFilter} AND UPPER("port_of_discharge") = UPPER('${pod}') AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter} LIMIT 200`;
+    const podFilter = podArray.length > 1
+      ? ` AND UPPER("port_of_discharge") IN (${podArray.map(p => `UPPER('${p}')`).join(',')})`
+      : ` AND UPPER("port_of_discharge") = UPPER('${podArray[0]}')`;
+    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","currency","mode","carrier","transit_time","service_type","dg","effective_date","valid_until" FROM "ocean_freight" WHERE ${polFilter}${podFilter} AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter} LIMIT 200`;
     queries.push(oceanQuery);
 
     console.log('=== OCEAN FREIGHT QUERY ===');
@@ -102,7 +107,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const { data: ocean } = await selectWithFallback(TABLE_KEYS.ocean, (q) => {
       let query = q.select('port_of_loading,port_of_discharge,direction,20gp,40gp_40hc,currency,mode,carrier,transit_time,service_type')
         .in('port_of_loading', polArray)
-        .ilike('port_of_discharge', pod)
+        .in('port_of_discharge', podArray)
         .ilike('direction', direction)
         .eq('currency', 'USD')
         .lte('effective_date', toDate)
@@ -228,7 +233,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
   const oceanUSD: Section = {
     currency: 'USD',
     title: 'Ocean Freight (USD)',
-    subtitle: `${polDisplay} → ${pod} • ${getEquipmentSummary(qty20, qty40, qty40HC, lclCbm)}`,
+    subtitle: `${polDisplay} → ${podDisplay} • ${getEquipmentSummary(qty20, qty40, qty40HC, lclCbm)}`,
     items: oceanItems,
     subtotal: subTotal(oceanItems)
   };
@@ -236,8 +241,11 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
   // 2) LOCALS AUD (mandatory only if column exists)
   let localsItems: LineItem[] = [];
   try {
-    const localPort = direction === 'import' ? pod : polArray[0];
-    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","currency","effective_date","valid_until" FROM "local" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("port_of_discharge") = UPPER('${localPort}') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}' LIMIT 500`;
+    const localPortArray = direction === 'import' ? podArray : polArray;
+    const localPortFilter = localPortArray.length > 1
+      ? ` AND UPPER("port_of_discharge") IN (${localPortArray.map(p => `UPPER('${p}')`).join(',')})`
+      : ` AND UPPER("port_of_discharge") = UPPER('${localPortArray[0]}')`;
+    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","currency","effective_date","valid_until" FROM "local" WHERE UPPER("direction") = UPPER('${direction}')${localPortFilter} AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}' LIMIT 500`;
     queries.push(localsQuery);
 
     console.log('=== LOCAL CHARGES QUERY ===');
@@ -246,7 +254,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const { data: locals } = await selectWithFallback(TABLE_KEYS.local, (q) =>
       q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,currency')
         .ilike('direction', direction)
-        .ilike('port_of_discharge', localPort)
+        .in('port_of_discharge', localPortArray)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
         .gte('valid_until', fromDate)

@@ -211,10 +211,11 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
 
   const isValidForm = () => {
     const hasValidPol = Array.isArray(inputs.pol) ? inputs.pol.length > 0 : inputs.pol !== '';
+    const hasValidPod = Array.isArray(inputs.pod) ? inputs.pod.length > 0 : inputs.pod !== '';
     return (
       inputs.direction &&
       hasValidPol &&
-      inputs.pod &&
+      hasValidPod &&
       inputs.validityFrom &&
       inputs.validityTo &&
       inputs.validityFrom <= inputs.validityTo &&
@@ -226,7 +227,7 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
     const initialInputs: CalculationInputs = {
       direction: 'export',
       pol: [],
-      pod: '',
+      pod: [],
       point: '',
       validityFrom: new Date().toISOString().split('T')[0],
       validityTo: (() => {
@@ -301,11 +302,11 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Port of Discharge (POD) *
           </label>
-          <SuggestiveSelect
-            value={inputs.pod}
-            onChange={(value) => handleChange('pod', value)}
+          <MultiSelect
+            values={Array.isArray(inputs.pod) ? inputs.pod : inputs.pod ? [inputs.pod] : []}
+            onChange={(values) => handleChange('pod', values)}
             options={portOptions}
-            placeholder="Enter destination port"
+            placeholder="Select destination ports"
             loading={loadingPorts}
           />
         </div>
