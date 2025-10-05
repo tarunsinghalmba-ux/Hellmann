@@ -143,21 +143,41 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.log('- Row count:', ocean?.length || 0);
     console.log('- Raw data:', ocean);
     console.log('===========================');
-    
-    // Process each container type separately with validity date enforcement
+
+    // Track unique port combinations to avoid duplicates
+    const seenCombinations = new Map<string, any>();
+
+    // First pass: collect unique combinations, keeping the best rate for each
     (ocean ?? []).forEach((r: any) => {
       // Double-check validity dates on each record
       const effectiveDate = new Date(r.effective_date);
       const validUntilDate = new Date(r.valid_until);
       const fromDateObj = new Date(fromDate);
       const toDateObj = new Date(toDate);
-      
+
       // Skip if record doesn't fall within the requested date range
       if (effectiveDate > toDateObj || validUntilDate < fromDateObj) {
         console.log(`Skipping ocean record due to date mismatch: ${r.effective_date} - ${r.valid_until}`);
         return;
       }
-      
+
+      const polPod = `${r.port_of_loading}→${r.port_of_discharge}`;
+      const existing = seenCombinations.get(polPod);
+
+      // Keep the record with the lowest rate (or first if rates are equal)
+      if (!existing) {
+        seenCombinations.set(polPod, r);
+      } else {
+        const existingRate = parseFloat(existing['20gp']) || parseFloat(existing['40gp_40hc']) || 0;
+        const currentRate = parseFloat(r['20gp']) || parseFloat(r['40gp_40hc']) || 0;
+        if (currentRate > 0 && (existingRate === 0 || currentRate < existingRate)) {
+          seenCombinations.set(polPod, r);
+        }
+      }
+    });
+
+    // Second pass: process unique combinations
+    seenCombinations.forEach((r: any) => {
       // 20GP containers
       if (qty20 > 0) {
         const rate = parseFloat(r['20gp']) || 0;
@@ -165,7 +185,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           const total = rate * qty20;
           const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
           oceanItems.push({
-            label: `${r.port_of_loading} → ${pod} (20GP${extraInfo ? ` - ${extraInfo}` : ''})`,
+            label: `${r.port_of_loading} → ${r.port_of_discharge} (20GP${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CONTAINER',
             qty: qty20,
             rate,
@@ -182,7 +202,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           const total = rate * qty40;
           const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
           oceanItems.push({
-            label: `${r.port_of_loading} → ${pod} (40GP${extraInfo ? ` - ${extraInfo}` : ''})`,
+            label: `${r.port_of_loading} → ${r.port_of_discharge} (40GP${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CONTAINER',
             qty: qty40,
             rate,
@@ -199,7 +219,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           const total = rate * qty40HC;
           const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
           oceanItems.push({
-            label: `${r.port_of_loading} → ${pod} (40HC${extraInfo ? ` - ${extraInfo}` : ''})`,
+            label: `${r.port_of_loading} → ${r.port_of_discharge} (40HC${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CONTAINER',
             qty: qty40HC,
             rate,
@@ -216,7 +236,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           const total = rate * lclCbm;
           const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
           oceanItems.push({
-            label: `${r.port_of_loading} → ${pod} (LCL${extraInfo ? ` - ${extraInfo}` : ''})`,
+            label: `${r.port_of_loading} → ${r.port_of_discharge} (LCL${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CBM',
             qty: lclCbm,
             rate,
