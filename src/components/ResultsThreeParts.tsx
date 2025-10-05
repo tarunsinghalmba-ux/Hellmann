@@ -76,7 +76,7 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
 
   // Check if we have any results to show
   const hasResults = data.oceanUSD.items.length > 0 || data.localsAUD.items.length > 0 || data.deliveryAUD.items.length > 0;
-  
+
   // If no results at all, show a message
   if (!hasResults) {
     return (
@@ -85,13 +85,18 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
           <Calculator className="h-16 w-16 mx-auto mb-4 text-gray-300" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Results Found</h3>
           <p className="text-gray-600">
-            No matching rates found for the selected criteria and validity dates. 
+            No matching rates found for the selected criteria and validity dates.
             Please try adjusting your search parameters or date range.
           </p>
         </div>
       </div>
     );
   }
+
+  // Count unique ocean freight records (each item represents a container type from a record)
+  const oceanFreightRecordCount = data.oceanUSD.items.length;
+  const showSummary = oceanFreightRecordCount <= 1;
+
   const cards: Array<{ key: keyof CalcResult; accent: string }> = [
     { key: 'oceanUSD', accent: 'border-blue-500' },
     { key: 'localsAUD', accent: 'border-emerald-500' },
@@ -100,7 +105,7 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
 
   return (
     <div className="grid gap-4">
-      <SummaryPanel data={data} usdToAudRate={usdToAudRate} />
+      {showSummary && <SummaryPanel data={data} usdToAudRate={usdToAudRate} />}
       {cards.map(({ key, accent }) => {
         const s = data[key];
         const empty = !s.items.length;
