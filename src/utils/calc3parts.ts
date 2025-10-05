@@ -4,7 +4,7 @@ import type { Direction, Equipment, OceanRow, LocalRow, TransportRow } from '../
 
 export interface CalcInput {
   direction: Direction;
-  pol: string; // Port of Loading
+  pol: string | string[]; // Port of Loading (supports multi-select)
   pod: string; // Port of Discharge
   suburb: string; // Delivery point for import, Pickup point for export
   fromDate: string; // YYYY-MM-DD
@@ -25,6 +25,9 @@ export interface CalcInput {
   sideLoaderAccessFees?: boolean; // side loader access fees filter
   unpackPalletized?: boolean; // unpack palletized filter
   fumigationSurcharge?: boolean; // fumigation surcharge filter
+  serviceType?: string; // service type filter
+  sideloaderSamedayCollection?: boolean; // sideloader sameday collection filter
+  unpackLoose?: boolean; // unpack loose filter
 }
 
 export interface LineItem { 
@@ -62,10 +65,12 @@ function subTotal(items: LineItem[]) { return items.reduce((s, r) => s + r.total
 export async function calculateThreeParts(input: CalcInput): Promise<CalcResult> {
   const { direction, pol, pod, suburb, fromDate, toDate, qty20, qty40, qty40HC, lclCbm = 0 } = input;
   const queries: string[] = [];
+  const polArray = Array.isArray(pol) ? pol : [pol];
+  const polDisplay = polArray.join(', ');
 
   console.log('=== CALCULATION INPUT ===');
   console.log('Direction:', direction);
-  console.log('POL:', pol);
+  console.log('POL:', polDisplay);
   console.log('POD:', pod);
   console.log('Suburb:', suburb);
   console.log('Date Range:', fromDate, 'to', toDate);
@@ -85,15 +90,18 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const transitTimeFilter = (input.transitTime && parseInt(input.transitTime) > 0) ? ` AND "transit_time" = ${parseInt(input.transitTime)}` : '';
     const serviceTypeFilter = input.serviceType ? ` AND UPPER("service_type") = UPPER('${input.serviceType}')` : '';
     const dangerousGoodsFilter = input.dangerousGoods === true ? ` AND "dg" = 'Yes'` : input.dangerousGoods === false ? ` AND "dg" = 'No'` : '';
-    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","currency","mode","carrier","transit_time","service_type","dg","effective_date","valid_until" FROM "ocean_freight" WHERE UPPER("port_of_loading") = UPPER('${pol}') AND UPPER("port_of_discharge") = UPPER('${pod}') AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter} LIMIT 200`;
+    const polFilter = polArray.length > 1
+      ? ` AND UPPER("port_of_loading") IN (${polArray.map(p => `UPPER('${p}')`).join(',')})`
+      : ` AND UPPER("port_of_loading") = UPPER('${polArray[0]}')`;
+    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","currency","mode","carrier","transit_time","service_type","dg","effective_date","valid_until" FROM "ocean_freight" WHERE ${polFilter} AND UPPER("port_of_discharge") = UPPER('${pod}') AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter} LIMIT 200`;
     queries.push(oceanQuery);
-    
+
     console.log('=== OCEAN FREIGHT QUERY ===');
     console.log('SQL:', oceanQuery);
-    
+
     const { data: ocean } = await selectWithFallback(TABLE_KEYS.ocean, (q) => {
       let query = q.select('port_of_loading,port_of_discharge,direction,20gp,40gp_40hc,currency,mode,carrier,transit_time,service_type')
-        .ilike('port_of_loading', pol)
+        .in('port_of_loading', polArray)
         .ilike('port_of_discharge', pod)
         .ilike('direction', direction)
         .eq('currency', 'USD')
@@ -152,7 +160,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           const total = rate * qty20;
           const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
           oceanItems.push({
-            label: `${pol} → ${pod} (20GP${extraInfo ? ` - ${extraInfo}` : ''})`,
+            label: `${r.port_of_loading} → ${pod} (20GP${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CONTAINER',
             qty: qty20,
             rate,
@@ -161,7 +169,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           });
         }
       }
-      
+
       // 40GP containers
       if (qty40 > 0) {
         const rate = parseFloat(r['40gp_40hc']) || 0;
@@ -169,7 +177,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           const total = rate * qty40;
           const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
           oceanItems.push({
-            label: `${pol} → ${pod} (40GP${extraInfo ? ` - ${extraInfo}` : ''})`,
+            label: `${r.port_of_loading} → ${pod} (40GP${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CONTAINER',
             qty: qty40,
             rate,
@@ -178,7 +186,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           });
         }
       }
-      
+
       // 40HC containers
       if (qty40HC > 0) {
         const rate = parseFloat(r['40gp_40hc']) || 0;
@@ -186,7 +194,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           const total = rate * qty40HC;
           const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
           oceanItems.push({
-            label: `${pol} → ${pod} (40HC${extraInfo ? ` - ${extraInfo}` : ''})`,
+            label: `${r.port_of_loading} → ${pod} (40HC${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CONTAINER',
             qty: qty40HC,
             rate,
@@ -195,7 +203,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           });
         }
       }
-      
+
       // LCL
       if (lclCbm > 0) {
         const rate = parseFloat(r.cubic_rate) || 0;
@@ -203,7 +211,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           const total = rate * lclCbm;
           const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
           oceanItems.push({
-            label: `${pol} → ${pod} (LCL${extraInfo ? ` - ${extraInfo}` : ''})`,
+            label: `${r.port_of_loading} → ${pod} (LCL${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CBM',
             qty: lclCbm,
             rate,
@@ -217,27 +225,28 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.error('Error fetching ocean freight:', error);
   }
 
-  const oceanUSD: Section = { 
-    currency: 'USD', 
-    title: 'Ocean Freight (USD)', 
-    subtitle: `${pol} → ${pod} • ${getEquipmentSummary(qty20, qty40, qty40HC, lclCbm)}`, 
-    items: oceanItems, 
-    subtotal: subTotal(oceanItems) 
+  const oceanUSD: Section = {
+    currency: 'USD',
+    title: 'Ocean Freight (USD)',
+    subtitle: `${polDisplay} → ${pod} • ${getEquipmentSummary(qty20, qty40, qty40HC, lclCbm)}`,
+    items: oceanItems,
+    subtotal: subTotal(oceanItems)
   };
 
   // 2) LOCALS AUD (mandatory only if column exists)
   let localsItems: LineItem[] = [];
   try {
-    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","currency","effective_date","valid_until" FROM "local" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("port_of_discharge") = UPPER('${direction === 'import' ? pod : pol}') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}' LIMIT 500`;
+    const localPort = direction === 'import' ? pod : polArray[0];
+    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","currency","effective_date","valid_until" FROM "local" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("port_of_discharge") = UPPER('${localPort}') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}' LIMIT 500`;
     queries.push(localsQuery);
-    
+
     console.log('=== LOCAL CHARGES QUERY ===');
     console.log('SQL:', localsQuery);
-    
+
     const { data: locals } = await selectWithFallback(TABLE_KEYS.local, (q) =>
       q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,currency')
         .ilike('direction', direction)
-        .ilike('port_of_discharge', direction === 'import' ? pod : pol)
+        .ilike('port_of_discharge', localPort)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
         .gte('valid_until', fromDate)

@@ -48,7 +48,7 @@ export interface TransportPricing {
 
 export interface CalculationInputs {
   direction: 'import' | 'export';
-  pol: string; // Port of Loading
+  pol: string | string[]; // Port of Loading (supports multi-select)
   pod: string; // Port of Discharge
   point: string; // Delivery/Pickup point
   validityFrom: string;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calculator, RotateCcw } from 'lucide-react';
 import SuggestiveSelect from './SuggestiveSelect';
+import MultiSelect from './MultiSelect';
 import { supabase } from '../lib/supabase';
 import { selectWithFallback, TABLE_KEYS } from '../lib/tableMap';
 import type { CalculationInputs } from '../types';
@@ -209,9 +210,10 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
   };
 
   const isValidForm = () => {
+    const hasValidPol = Array.isArray(inputs.pol) ? inputs.pol.length > 0 : inputs.pol !== '';
     return (
       inputs.direction &&
-      inputs.pol &&
+      hasValidPol &&
       inputs.pod &&
       inputs.validityFrom &&
       inputs.validityTo &&
@@ -223,7 +225,7 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
   const handleReset = () => {
     const initialInputs: CalculationInputs = {
       direction: 'export',
-      pol: '',
+      pol: [],
       pod: '',
       point: '',
       validityFrom: new Date().toISOString().split('T')[0],
@@ -286,11 +288,11 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Port of Loading (POL) *
           </label>
-          <SuggestiveSelect
-            value={inputs.pol}
-            onChange={(value) => handleChange('pol', value)}
+          <MultiSelect
+            values={Array.isArray(inputs.pol) ? inputs.pol : inputs.pol ? [inputs.pol] : []}
+            onChange={(values) => handleChange('pol', values)}
             options={portOptions}
-            placeholder="Enter origin port"
+            placeholder="Select origin ports"
             loading={loadingPorts}
           />
         </div>
