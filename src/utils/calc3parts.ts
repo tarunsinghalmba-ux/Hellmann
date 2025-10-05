@@ -274,15 +274,24 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.log('=== LOCAL CHARGES QUERY ===');
     console.log('SQL:', localsQuery);
 
-    const { data: locals } = await selectWithFallback(TABLE_KEYS.local, (q) =>
-      q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,currency')
+    const { data: locals } = await selectWithFallback(TABLE_KEYS.local, (q) => {
+      let base = q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,currency')
         .ilike('direction', direction)
-        .in('port_of_discharge', localPortArray)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
         .gte('valid_until', fromDate)
-        .limit(500)
-    );
+        .limit(500);
+
+      // Apply case-insensitive port filtering
+      if (localPortArray.length === 1) {
+        base = base.ilike('port_of_discharge', localPortArray[0]);
+      } else {
+        // For multiple ports, use OR with ilike for each port
+        base = base.or(localPortArray.map(p => `port_of_discharge.ilike.${p}`).join(','));
+      }
+
+      return base;
+    });
 
     console.log('Local Charges Results:');
     console.log('- Row count:', locals?.length || 0);
