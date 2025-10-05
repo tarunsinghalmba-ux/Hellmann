@@ -263,6 +263,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
   // 2) LOCALS AUD (mandatory only if column exists)
   let localsItems: LineItem[] = [];
+  let actualLocalPorts: Set<string> = new Set();
   try {
     const localPortArray = direction === 'import' ? podArray : polArray;
     const localPortFilter = localPortArray.length > 1
@@ -297,9 +298,13 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.log('- Row count:', locals?.length || 0);
     console.log('- Raw data:', locals);
     console.log('===========================');
-    
+
     // Process local charges for each container type with validity date enforcement
     (locals ?? []).forEach((r: any) => {
+      // Track actual ports returned
+      if (r.port_of_discharge) {
+        actualLocalPorts.add(r.port_of_discharge);
+      }
       // Double-check validity dates on each record
       const effectiveDate = new Date(r.effective_date);
       const validUntilDate = new Date(r.valid_until);
@@ -395,27 +400,32 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.error('Error fetching local charges:', error);
   }
 
-  const localsAUD: Section = { 
-    currency: 'AUD', 
-    title: 'Locals (AUD)', 
-    subtitle: `${direction === 'import' ? pod : pol} • ${getEquipmentSummary(qty20, qty40, qty40HC, lclCbm)}`, 
-    items: localsItems, 
-    subtotal: subTotal(localsItems) 
+  const localPortsDisplay = actualLocalPorts.size > 0
+    ? Array.from(actualLocalPorts).join(', ')
+    : (direction === 'import' ? podDisplay : polDisplay);
+
+  const localsAUD: Section = {
+    currency: 'AUD',
+    title: 'Locals (AUD)',
+    subtitle: `${localPortsDisplay} • ${getEquipmentSummary(qty20, qty40, qty40HC, lclCbm)}`,
+    items: localsItems,
+    subtotal: subTotal(localsItems)
   };
 
   // 3) DELIVERY AUD (transport)
   let delItems: LineItem[] = [];
+  let actualTransportLocations: Set<string> = new Set();
   try {
     const vehicleTypeFilter = input.vehicleType ? ` AND UPPER("vehicle_type") = UPPER('${input.vehicleType}')` : '';
     const transportVendorFilter = input.transportVendor ? ` AND UPPER("transport_vendor") = UPPER('${input.transportVendor}')` : '';
-    const transportQuery = direction === 'import' 
+    const transportQuery = direction === 'import'
       ? `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("delivery_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter} LIMIT 200`
       : `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("pick_up_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter} LIMIT 200`;
     queries.push(transportQuery);
-    
+
     console.log('=== TRANSPORT QUERY ===');
     console.log('SQL:', transportQuery);
-    
+
     const { data: transport } = await selectWithFallback(TABLE_KEYS.transport, (q) => {
       let base = q
         .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized,fumigation_bmsb,sideloader_same_day_collection')
@@ -424,15 +434,15 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         .lte('effective_date', toDate)
         .gte('valid_until', fromDate)
         .limit(200);
-      
+
       if (input.vehicleType) {
         base = base.ilike('vehicle_type', input.vehicleType);
       }
-      
+
       if (input.transportVendor) {
         base = base.ilike('transport_vendor', input.transportVendor);
       }
-      
+
       return direction === 'import'
         ? base.ilike('delivery_location', `%${suburb}%`)
         : base.ilike('pick_up_location', `%${suburb}%`);
@@ -442,9 +452,14 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.log('- Row count:', transport?.length || 0);
     console.log('- Raw data:', transport);
     console.log('=======================');
-    
+
     // Process transport charges for each container type with validity date enforcement
     (transport ?? []).forEach((r: any) => {
+      // Track actual locations returned
+      const relevantLocation = direction === 'import' ? r.delivery_location : r.pick_up_location;
+      if (relevantLocation) {
+        actualTransportLocations.add(relevantLocation);
+      }
       // Double-check validity dates on each record
       const effectiveDate = new Date(r.effective_date);
       const validUntilDate = new Date(r.valid_until);
@@ -637,11 +652,16 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
   console.log('Local items processed:', localsItems.length);
   console.log('Transport items processed:', delItems.length);
   console.log('==============================');
-  const deliveryAUD: Section = { 
-    currency: 'AUD', 
-    title: 'Destination Delivery (AUD)', 
-    subtitle: `${suburb} • ${getEquipmentSummary(qty20, qty40, qty40HC, lclCbm)}`, 
-    items: delItems, 
+
+  const transportLocationsDisplay = actualTransportLocations.size > 0
+    ? Array.from(actualTransportLocations).join(', ')
+    : suburb;
+
+  const deliveryAUD: Section = {
+    currency: 'AUD',
+    title: 'Destination Delivery (AUD)',
+    subtitle: `${transportLocationsDisplay} • ${getEquipmentSummary(qty20, qty40, qty40HC, lclCbm)}`,
+    items: delItems,
     subtotal: subTotal(delItems) 
   };
 
