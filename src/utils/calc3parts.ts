@@ -144,10 +144,10 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.log('- Raw data:', ocean);
     console.log('===========================');
 
-    // Track unique port combinations to avoid duplicates
+    // Track unique combinations including carrier, mode, service type to show all options
     const seenCombinations = new Map<string, any>();
 
-    // First pass: collect unique combinations, keeping the best rate for each
+    // First pass: collect unique combinations based on all relevant fields
     (ocean ?? []).forEach((r: any) => {
       // Double-check validity dates on each record
       const effectiveDate = new Date(r.effective_date);
@@ -161,20 +161,23 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         return;
       }
 
-      const polPod = `${r.port_of_loading}→${r.port_of_discharge}`;
-      const existing = seenCombinations.get(polPod);
+      // Create unique key including carrier, mode, service type, transit time, and DG status
+      const uniqueKey = `${r.port_of_loading}→${r.port_of_discharge}|${r.carrier || 'N/A'}|${r.mode || 'N/A'}|${r.service_type || 'N/A'}|${r.transit_time || 'N/A'}|${r.dg || 'N/A'}`;
+      const existing = seenCombinations.get(uniqueKey);
 
       // Keep the record with the lowest rate (or first if rates are equal)
       if (!existing) {
-        seenCombinations.set(polPod, r);
+        seenCombinations.set(uniqueKey, r);
       } else {
         const existingRate = parseFloat(existing['20gp']) || parseFloat(existing['40gp_40hc']) || 0;
         const currentRate = parseFloat(r['20gp']) || parseFloat(r['40gp_40hc']) || 0;
         if (currentRate > 0 && (existingRate === 0 || currentRate < existingRate)) {
-          seenCombinations.set(polPod, r);
+          seenCombinations.set(uniqueKey, r);
         }
       }
     });
+
+    console.log(`Unique combinations found: ${seenCombinations.size}`);
 
     // Second pass: process unique combinations
     seenCombinations.forEach((r: any) => {
