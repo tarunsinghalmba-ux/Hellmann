@@ -303,11 +303,13 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         return;
       }
       
+      const portInfo = r.port_of_discharge ? ` (${r.port_of_discharge})` : '';
+
       // Per shipment charges (apply once regardless of container count)
       if (r.per_shipment_charge && parseFloat(r.per_shipment_charge) > 0) {
         const rate = parseFloat(r.per_shipment_charge);
         localsItems.push({
-          label: r.charge_description || 'Local Charge',
+          label: `${r.charge_description || 'Local Charge'}${portInfo}`,
           unit: 'PER_SHIPMENT',
           qty: 1,
           rate,
@@ -315,14 +317,14 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           extra: r.cw1_charge_code ?? undefined
         });
       }
-      
+
       // 20GP container charges
       if (qty20 > 0 && r['20gp']) {
         const rate = parseFloat(r['20gp']) || 0;
         if (rate > 0) {
           const total = rate * qty20;
           localsItems.push({
-            label: `${r.charge_description || 'Local Charge'} (20GP)`,
+            label: `${r.charge_description || 'Local Charge'}${portInfo} (20GP)`,
             unit: 'PER_CONTAINER',
             qty: qty20,
             rate,
@@ -331,7 +333,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           });
         }
       }
-      
+
       // 40GP/40HC container charges
       if ((qty40 > 0 || qty40HC > 0) && r['40gp_40hc']) {
         const rate = parseFloat(r['40gp_40hc']) || 0;
@@ -340,7 +342,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           if (qty40 > 0) {
             const total = rate * qty40;
             localsItems.push({
-              label: `${r.charge_description || 'Local Charge'} (40GP)`,
+              label: `${r.charge_description || 'Local Charge'}${portInfo} (40GP)`,
               unit: 'PER_CONTAINER',
               qty: qty40,
               rate,
@@ -348,12 +350,12 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
               extra: r.cw1_charge_code ?? undefined
             });
           }
-          
+
           // 40HC charges
           if (qty40HC > 0) {
             const total = rate * qty40HC;
             localsItems.push({
-              label: `${r.charge_description || 'Local Charge'} (40HC)`,
+              label: `${r.charge_description || 'Local Charge'}${portInfo} (40HC)`,
               unit: 'PER_CONTAINER',
               qty: qty40HC,
               rate,
@@ -363,14 +365,14 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           }
         }
       }
-      
+
       // LCL charges (if cubic rate available)
       if (lclCbm > 0 && r.cubic_rate) {
         const rate = parseFloat(r.cubic_rate) || 0;
         if (rate > 0) {
           const total = rate * lclCbm;
           localsItems.push({
-            label: `${r.charge_description || 'Local Charge'} (LCL)`,
+            label: `${r.charge_description || 'Local Charge'}${portInfo} (LCL)`,
             unit: 'PER_CBM',
             qty: lclCbm,
             rate,
@@ -446,10 +448,12 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         return;
       }
       
-      const baseLabel = r.charge_description || (direction === 'import' 
-        ? `${r.delivery_location ?? suburb} delivery` 
-        : `${r.pick_up_location ?? suburb} pickup`);
-      
+      const locationInfo = direction === 'import'
+        ? (r.delivery_location ? ` (${r.delivery_location})` : '')
+        : (r.pick_up_location ? ` (${r.pick_up_location})` : '');
+
+      const baseLabel = `${r.charge_description || 'Transport'}${locationInfo}`;
+
       // Calculate DG surcharge if dangerous goods are selected
       const dgSurcharge = input.dangerousGoods ? (parseFloat(r.dg_surcharge) || 0) : 0;
       
