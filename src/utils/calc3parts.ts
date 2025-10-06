@@ -179,6 +179,9 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
     console.log(`Unique combinations found: ${seenCombinations.size}`);
 
+    // Determine if we should show the calculation summary (only show when there's more than 1 record)
+    const showCalculationSummary = seenCombinations.size > 1;
+
     // Second pass: process unique combinations
     seenCombinations.forEach((r: any) => {
       // 20GP containers
@@ -186,7 +189,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         const rate = parseFloat(r['20gp']) || 0;
         if (rate > 0) {
           const total = rate * qty20;
-          const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
+          const extraInfo = showCalculationSummary ? [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ') : '';
           oceanItems.push({
             label: `${r.port_of_loading} → ${r.port_of_discharge} (20GP${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CONTAINER',
@@ -203,7 +206,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         const rate = parseFloat(r['40gp_40hc']) || 0;
         if (rate > 0) {
           const total = rate * qty40;
-          const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
+          const extraInfo = showCalculationSummary ? [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ') : '';
           oceanItems.push({
             label: `${r.port_of_loading} → ${r.port_of_discharge} (40GP${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CONTAINER',
@@ -220,7 +223,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         const rate = parseFloat(r['40gp_40hc']) || 0;
         if (rate > 0) {
           const total = rate * qty40HC;
-          const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
+          const extraInfo = showCalculationSummary ? [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ') : '';
           oceanItems.push({
             label: `${r.port_of_loading} → ${r.port_of_discharge} (40HC${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CONTAINER',
@@ -237,7 +240,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         const rate = parseFloat(r.cubic_rate) || 0;
         if (rate > 0) {
           const total = rate * lclCbm;
-          const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
+          const extraInfo = showCalculationSummary ? [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ') : '';
           oceanItems.push({
             label: `${r.port_of_loading} → ${r.port_of_discharge} (LCL${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CBM',
