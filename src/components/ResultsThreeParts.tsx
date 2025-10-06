@@ -6,15 +6,12 @@ const Money: React.FC<{ value: number; currency: string }> = ({ value, currency 
   <span>{new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value || 0)}</span>
 );
 
-const SummaryPanel: React.FC<{ data: CalcResult; usdToAudRate: number }> = ({ data, usdToAudRate }) => {
+const SummaryPanel: React.FC<{ data: CalcResult }> = ({ data }) => {
+  const USD_TO_AUD_RATE = 1.52; // Same rate as used in calculation
   const oceanUSDTotal = data.oceanUSD.subtotal;
-  const oceanAUDTotal = oceanUSDTotal * usdToAudRate;
-  const localsAUDTotal = data.localsAUD.subtotal;
-  const deliveryAUDTotal = data.deliveryAUD.subtotal;
-  const netTotalAUD = oceanAUDTotal + localsAUDTotal + deliveryAUDTotal;
 
   return (
-    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl p-6 shadow-lg mb-6">
+    <div className="bg-gradient-to-r from-blue-50 to-sky-50 border-2 border-blue-200 rounded-2xl p-6 shadow-lg mb-6">
       <div className="flex items-center gap-3 mb-4">
         <Calculator className="h-6 w-6 text-blue-600" />
         <h2 className="text-xl font-bold text-gray-900">Calculation Summary</h2>
@@ -27,43 +24,43 @@ const SummaryPanel: React.FC<{ data: CalcResult; usdToAudRate: number }> = ({ da
         <div className="flex items-center gap-2 ml-auto">
           <DollarSign className="h-4 w-4 text-green-600" />
           <span className="text-sm font-medium text-gray-700">
-            USD to AUD Rate: {usdToAudRate.toFixed(4)}
+            USD to AUD Rate: {USD_TO_AUD_RATE.toFixed(2)}
           </span>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
         <div className="bg-white rounded-lg p-4 border border-blue-100">
           <div className="text-sm font-medium text-gray-600 mb-1">Ocean Freight</div>
           <div className="text-sm text-gray-500 mb-2">
-            <Money value={oceanUSDTotal} currency="USD" /> → <Money value={oceanAUDTotal} currency="AUD" />
+            <Money value={oceanUSDTotal} currency="USD" /> → <Money value={data.summary.items[0].amount} currency="AUD" />
           </div>
           <div className="text-lg font-bold text-blue-600">
-            <Money value={oceanAUDTotal} currency="AUD" />
+            <Money value={data.summary.items[0].amount} currency={data.summary.currency} />
           </div>
         </div>
-        
+
         <div className="bg-white rounded-lg p-4 border border-emerald-100">
           <div className="text-sm font-medium text-gray-600 mb-1">Local Charges</div>
           <div className="text-sm text-gray-500 mb-2">Already in AUD</div>
           <div className="text-lg font-bold text-emerald-600">
-            <Money value={localsAUDTotal} currency="AUD" />
+            <Money value={data.summary.items[1].amount} currency={data.summary.currency} />
           </div>
         </div>
-        
+
         <div className="bg-white rounded-lg p-4 border border-amber-100">
           <div className="text-sm font-medium text-gray-600 mb-1">Transport</div>
           <div className="text-sm text-gray-500 mb-2">Already in AUD</div>
           <div className="text-lg font-bold text-amber-600">
-            <Money value={deliveryAUDTotal} currency="AUD" />
+            <Money value={data.summary.items[2].amount} currency={data.summary.currency} />
           </div>
         </div>
-        
+
         <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 border-2 border-green-200">
-          <div className="text-sm font-medium text-gray-600 mb-1">Net Total</div>
+          <div className="text-sm font-medium text-gray-600 mb-1">Grand Total</div>
           <div className="text-sm text-gray-500 mb-2">All costs in AUD</div>
           <div className="text-2xl font-bold text-green-700">
-            <Money value={netTotalAUD} currency="AUD" />
+            <Money value={data.summary.grandTotal} currency={data.summary.currency} />
           </div>
         </div>
       </div>
@@ -71,9 +68,6 @@ const SummaryPanel: React.FC<{ data: CalcResult; usdToAudRate: number }> = ({ da
   );
 };
 export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string[] }> = ({ data, emptyHints = [] }) => {
-  // Default USD to AUD conversion rate - in a real app, this would come from an API
-  const usdToAudRate = 1.52; // You can make this dynamic later
-
   // Check if we have any results to show
   const hasResults = data.oceanUSD.items.length > 0 || data.localsAUD.items.length > 0 || data.deliveryAUD.items.length > 0;
 
@@ -93,10 +87,6 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
     );
   }
 
-  // Count unique ocean freight records (each item represents a container type from a record)
-  const oceanFreightRecordCount = data.oceanUSD.items.length;
-  const showSummary = oceanFreightRecordCount <= 1;
-
   const cards: Array<{ key: keyof CalcResult; accent: string }> = [
     { key: 'oceanUSD', accent: 'border-blue-500' },
     { key: 'localsAUD', accent: 'border-emerald-500' },
@@ -105,7 +95,7 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
 
   return (
     <div className="grid gap-4">
-      {showSummary && <SummaryPanel data={data} usdToAudRate={usdToAudRate} />}
+      <SummaryPanel data={data} />
       {cards.map(({ key, accent }) => {
         const s = data[key];
         const empty = !s.items.length;
@@ -115,9 +105,6 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
           return null;
         }
 
-        // Hide subtotal for ocean freight when there are multiple records
-        const showSubtotal = !(key === 'oceanUSD' && oceanFreightRecordCount > 1);
-
         return (
           <div key={key} className={`rounded-2xl border-2 p-6 shadow-sm bg-white ${accent}`}>
             <div className="flex items-center justify-between mb-4">
@@ -125,13 +112,11 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
                 <h3 className="text-lg font-semibold text-gray-900">{s.title}</h3>
                 {s.subtitle && <p className="text-sm text-gray-600">{s.subtitle}</p>}
               </div>
-              {showSubtotal && (
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-gray-900">
-                    <Money value={s.subtotal} currency={s.currency} />
-                  </div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-gray-900">
+                  <Money value={s.subtotal} currency={s.currency} />
                 </div>
-              )}
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">

@@ -47,10 +47,22 @@ export interface Section {
   subtotal: number; 
 }
 
-export interface CalcResult { 
-  oceanUSD: Section; 
-  localsAUD: Section; 
-  deliveryAUD: Section; 
+export interface SummaryItem {
+  label: string;
+  amount: number;
+}
+
+export interface CalculationSummary {
+  items: SummaryItem[];
+  grandTotal: number;
+  currency: string;
+}
+
+export interface CalcResult {
+  oceanUSD: Section;
+  localsAUD: Section;
+  deliveryAUD: Section;
+  summary: CalculationSummary;
   validityPeriod: {
     from: string;
     to: string;
@@ -179,17 +191,14 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
     console.log(`Unique combinations found: ${seenCombinations.size}`);
 
-    // Determine if we should show the calculation summary (only show when user selected multiple ports)
-    const showCalculationSummary = polArray.length > 1 || podArray.length > 1;
-
-    // Second pass: process unique combinations
+    // Second pass: process unique combinations (always show extra info)
     seenCombinations.forEach((r: any) => {
       // 20GP containers
       if (qty20 > 0) {
         const rate = parseFloat(r['20gp']) || 0;
         if (rate > 0) {
           const total = rate * qty20;
-          const extraInfo = showCalculationSummary ? [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ') : '';
+          const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
           oceanItems.push({
             label: `${r.port_of_loading} → ${r.port_of_discharge} (20GP${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CONTAINER',
@@ -206,7 +215,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         const rate = parseFloat(r['40gp_40hc']) || 0;
         if (rate > 0) {
           const total = rate * qty40;
-          const extraInfo = showCalculationSummary ? [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ') : '';
+          const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
           oceanItems.push({
             label: `${r.port_of_loading} → ${r.port_of_discharge} (40GP${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CONTAINER',
@@ -223,7 +232,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         const rate = parseFloat(r['40gp_40hc']) || 0;
         if (rate > 0) {
           const total = rate * qty40HC;
-          const extraInfo = showCalculationSummary ? [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ') : '';
+          const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
           oceanItems.push({
             label: `${r.port_of_loading} → ${r.port_of_discharge} (40HC${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CONTAINER',
@@ -240,7 +249,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         const rate = parseFloat(r.cubic_rate) || 0;
         if (rate > 0) {
           const total = rate * lclCbm;
-          const extraInfo = showCalculationSummary ? [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ') : '';
+          const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
           oceanItems.push({
             label: `${r.port_of_loading} → ${r.port_of_discharge} (LCL${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CBM',
@@ -665,18 +674,36 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     title: 'Destination Delivery (AUD)',
     subtitle: `${transportLocationsDisplay} • ${getEquipmentSummary(qty20, qty40, qty40HC, lclCbm)}`,
     items: delItems,
-    subtotal: subTotal(delItems) 
+    subtotal: subTotal(delItems)
   };
 
-  return { 
-    oceanUSD, 
-    localsAUD, 
-    deliveryAUD, 
+  // Calculate summary with USD to AUD conversion
+  const USD_TO_AUD_RATE = 1.52; // Fixed exchange rate - can be made configurable later
+  const oceanFreightAUD = oceanUSD.subtotal * USD_TO_AUD_RATE;
+  const localsTotal = localsAUD.subtotal;
+  const transportTotal = deliveryAUD.subtotal;
+  const grandTotalAUD = oceanFreightAUD + localsTotal + transportTotal;
+
+  const summary: CalculationSummary = {
+    items: [
+      { label: 'Ocean Freight', amount: oceanFreightAUD },
+      { label: 'Locals', amount: localsTotal },
+      { label: 'Transport', amount: transportTotal }
+    ],
+    grandTotal: grandTotalAUD,
+    currency: 'AUD'
+  };
+
+  return {
+    oceanUSD,
+    localsAUD,
+    deliveryAUD,
+    summary,
     validityPeriod: {
       from: fromDate,
       to: toDate
     },
-    sqlQueries: queries 
+    sqlQueries: queries
   };
 }
 
