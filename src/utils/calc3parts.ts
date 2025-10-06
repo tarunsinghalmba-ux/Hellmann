@@ -179,8 +179,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
     console.log(`Unique combinations found: ${seenCombinations.size}`);
 
-    // Determine if we should show the calculation summary (only show when there's more than 1 record)
-    const showCalculationSummary = seenCombinations.size > 1;
+    // Determine if we should show the calculation summary (only show when user selected multiple ports)
+    const showCalculationSummary = polArray.length > 1 || podArray.length > 1;
 
     // Second pass: process unique combinations
     seenCombinations.forEach((r: any) => {
