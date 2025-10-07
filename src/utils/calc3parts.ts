@@ -353,10 +353,12 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.error('Error fetching ocean freight:', error);
   }
 
+  const validityDisplay = `${new Date(fromDate).toLocaleDateString()} - ${new Date(toDate).toLocaleDateString()}`;
+
   const oceanUSD: Section = {
     currency: 'USD',
     title: 'Ocean Freight (USD)',
-    subtitle: `${polDisplay} → ${podDisplay} • ${getEquipmentSummary(qty20, qty40, qty40HC, qty20RE, qty40RH, lclCbm)}`,
+    subtitle: `${polDisplay} → ${podDisplay} • ${getEquipmentSummary(qty20, qty40, qty40HC, qty20RE, qty40RH, lclCbm)} • Valid: ${validityDisplay}`,
     items: oceanItems,
     subtotal: subTotal(oceanItems)
   };
@@ -536,7 +538,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
   const localsAUD: Section = {
     currency: 'AUD',
     title: 'Locals (AUD)',
-    subtitle: `${localPortsDisplay} • ${getEquipmentSummary(qty20, qty40, qty40HC, qty20RE, qty40RH, lclCbm)}`,
+    subtitle: `${localPortsDisplay} • ${getEquipmentSummary(qty20, qty40, qty40HC, qty20RE, qty40RH, lclCbm)} • Valid: ${validityDisplay}`,
     items: localsItems,
     subtotal: subTotal(localsItems)
   };
@@ -845,7 +847,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
   const deliveryAUD: Section = {
     currency: 'AUD',
     title: 'Destination Delivery (AUD)',
-    subtitle: `${transportLocationsDisplay} • ${getEquipmentSummary(qty20, qty40, qty40HC, qty20RE, qty40RH, lclCbm)}`,
+    subtitle: `${transportLocationsDisplay} • ${getEquipmentSummary(qty20, qty40, qty40HC, qty20RE, qty40RH, lclCbm)} • Valid: ${validityDisplay}`,
     items: delItems,
     subtotal: subTotal(delItems)
   };
