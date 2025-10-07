@@ -396,8 +396,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         }
       }
 
-      // 40GP/40HC container charges
-      if ((qty40 > 0 || qty40HC > 0) && r['40gp_40hc']) {
+      // 40GP/40HC/40RH container charges (all use 40gp_40hc rate)
+      if ((qty40 > 0 || qty40HC > 0 || qty40RH > 0) && r['40gp_40hc']) {
         const rate = parseFloat(r['40gp_40hc']) || 0;
         if (rate > 0) {
           // 40GP charges
@@ -425,6 +425,35 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
               extra: r.cw1_charge_code ?? undefined
             });
           }
+
+          // 40RH charges
+          if (qty40RH > 0) {
+            const total = rate * qty40RH;
+            localsItems.push({
+              label: `${r.charge_description || 'Local Charge'}${portInfo} (40RH)`,
+              unit: 'PER_CONTAINER',
+              qty: qty40RH,
+              rate,
+              total,
+              extra: r.cw1_charge_code ?? undefined
+            });
+          }
+        }
+      }
+
+      // 20RE container charges (use 20gp rate)
+      if (qty20RE > 0 && r['20gp']) {
+        const rate = parseFloat(r['20gp']) || 0;
+        if (rate > 0) {
+          const total = rate * qty20RE;
+          localsItems.push({
+            label: `${r.charge_description || 'Local Charge'}${portInfo} (20RE)`,
+            unit: 'PER_CONTAINER',
+            qty: qty20RE,
+            rate,
+            total,
+            extra: r.cw1_charge_code ?? undefined
+          });
         }
       }
 
@@ -636,7 +665,63 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           });
         }
       }
-      
+
+      // 20RE transport (use 20gp rate)
+      if (qty20RE > 0) {
+        const baseRate = parseFloat(r['20gp']) || 0;
+        const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge + fumigationCharge + sideloaderSamedayCharge;
+        if (rate > 0) {
+          const total = rate * qty20RE;
+          const additionalCharges = [];
+          if (dgSurcharge > 0) additionalCharges.push(`DG: ${dgSurcharge.toFixed(2)}`);
+          if (dropTrailerCharge > 0) additionalCharges.push(`Drop Trailer: ${dropTrailerCharge.toFixed(2)}`);
+          if (heavyWeightSurcharge > 0) additionalCharges.push(`Heavy Weight: ${heavyWeightSurcharge.toFixed(2)}`);
+          if (tailgateCharge > 0) additionalCharges.push(`Tailgate: ${tailgateCharge.toFixed(2)}`);
+          if (sideLoaderAccessFees > 0) additionalCharges.push(`Side Loader: ${sideLoaderAccessFees.toFixed(2)}`);
+          if (unpackLooseCharge > 0) additionalCharges.push(`Unpack Loose: ${unpackLooseCharge.toFixed(2)}`);
+          if (unpackPalletizedCharge > 0) additionalCharges.push(`Unpack Palletized: ${unpackPalletizedCharge.toFixed(2)}`);
+          if (fumigationCharge > 0) additionalCharges.push(`Fumigation: ${fumigationCharge.toFixed(2)}`);
+          if (sideloaderSamedayCharge > 0) additionalCharges.push(`Sideloader Sameday: ${sideloaderSamedayCharge.toFixed(2)}`);
+          const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
+          delItems.push({
+            label: `${baseLabel} (20RE${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
+            unit: 'PER_CONTAINER',
+            qty: qty20RE,
+            rate,
+            total,
+            extra: r.vehicle_type ?? undefined
+          });
+        }
+      }
+
+      // 40RH transport (use 40gp_40hc rate)
+      if (qty40RH > 0) {
+        const baseRate = parseFloat(r['40gp_40hc']) || 0;
+        const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge + fumigationCharge + sideloaderSamedayCharge;
+        if (rate > 0) {
+          const total = rate * qty40RH;
+          const additionalCharges = [];
+          if (dgSurcharge > 0) additionalCharges.push(`DG: ${dgSurcharge.toFixed(2)}`);
+          if (dropTrailerCharge > 0) additionalCharges.push(`Drop Trailer: ${dropTrailerCharge.toFixed(2)}`);
+          if (heavyWeightSurcharge > 0) additionalCharges.push(`Heavy Weight: ${heavyWeightSurcharge.toFixed(2)}`);
+          if (tailgateCharge > 0) additionalCharges.push(`Tailgate: ${tailgateCharge.toFixed(2)}`);
+          if (sideLoaderAccessFees > 0) additionalCharges.push(`Side Loader: ${sideLoaderAccessFees.toFixed(2)}`);
+          if (unpackLooseCharge > 0) additionalCharges.push(`Unpack Loose: ${unpackLooseCharge.toFixed(2)}`);
+          if (unpackPalletizedCharge > 0) additionalCharges.push(`Unpack Palletized: ${unpackPalletizedCharge.toFixed(2)}`);
+          if (fumigationCharge > 0) additionalCharges.push(`Fumigation: ${fumigationCharge.toFixed(2)}`);
+          if (sideloaderSamedayCharge > 0) additionalCharges.push(`Sideloader Sameday: ${sideloaderSamedayCharge.toFixed(2)}`);
+          const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
+          delItems.push({
+            label: `${baseLabel} (40RH${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
+            unit: 'PER_CONTAINER',
+            qty: qty40RH,
+            rate,
+            total,
+            extra: r.vehicle_type ?? undefined
+          });
+        }
+      }
+
       // LCL transport (if applicable - some transport may charge per CBM)
       if (lclCbm > 0) {
         // Check if there's a cubic rate for LCL transport
