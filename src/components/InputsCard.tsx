@@ -241,6 +241,7 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
       qty20RE: 0,
       qty40RH: 0,
       lclCbm: 0,
+      sortBy: 'recommended',
       mode: '',
       vehicleType: '',
       carrier: '',
@@ -495,6 +496,45 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
             <span className="text-sm font-medium text-gray-700">Sideloader Sameday Collection</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-sm font-medium text-gray-700 mb-3">Sort Ocean Freight By</h3>
+        <div className="flex gap-6 mb-6">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="sortBy"
+              value="cheapest"
+              checked={inputs.sortBy === 'cheapest'}
+              onChange={(e) => handleChange('sortBy', e.target.value as 'cheapest' | 'fastest' | 'recommended')}
+              className="text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Cheapest</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="sortBy"
+              value="fastest"
+              checked={inputs.sortBy === 'fastest'}
+              onChange={(e) => handleChange('sortBy', e.target.value as 'cheapest' | 'fastest' | 'recommended')}
+              className="text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Fastest</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="sortBy"
+              value="recommended"
+              checked={inputs.sortBy === 'recommended'}
+              onChange={(e) => handleChange('sortBy', e.target.value as 'cheapest' | 'fastest' | 'recommended')}
+              className="text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Recommended</span>
           </label>
         </div>
       </div>

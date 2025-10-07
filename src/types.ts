@@ -59,6 +59,7 @@ export interface CalculationInputs {
   qty20RE: number;
   qty40RH: number;
   lclCbm: number;
+  sortBy?: 'cheapest' | 'fastest' | 'recommended';
   mode?: string;
   vehicleType?: string;
   carrier?: string;

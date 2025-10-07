@@ -15,6 +15,7 @@ export interface CalcInput {
   qty20RE: number;      // 20RE container quantity
   qty40RH: number;      // 40RH container quantity
   lclCbm?: number;      // only when equipment = 'LCL'
+  sortBy?: 'cheapest' | 'fastest' | 'recommended'; // sort ocean freight results
   mode?: string;        // transportation mode filter
   vehicleType?: string; // vehicle type filter
   carrier?: string;    // carrier filter
@@ -193,8 +194,47 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
     console.log(`Unique combinations found: ${seenCombinations.size}`);
 
-    // Second pass: process unique combinations (always show extra info)
-    seenCombinations.forEach((r: any) => {
+    // Sort combinations based on sortBy option
+    let sortedCombinations = Array.from(seenCombinations.values());
+
+    if (input.sortBy === 'cheapest') {
+      // Sort by lowest rate (check all container types)
+      sortedCombinations.sort((a, b) => {
+        const rateA = parseFloat(a['20gp']) || parseFloat(a['40gp_40hc']) || parseFloat(a['20re']) || parseFloat(a['40rh']) || 0;
+        const rateB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || 0;
+        return rateA - rateB;
+      });
+    } else if (input.sortBy === 'fastest') {
+      // Sort by lowest transit time
+      sortedCombinations.sort((a, b) => {
+        const transitA = parseInt(a.transit_time) || 999;
+        const transitB = parseInt(b.transit_time) || 999;
+        return transitA - transitB;
+      });
+    } else if (input.sortBy === 'recommended') {
+      // Recommended: balance of price and speed (weighted score)
+      sortedCombinations.sort((a, b) => {
+        const rateA = parseFloat(a['20gp']) || parseFloat(a['40gp_40hc']) || parseFloat(a['20re']) || parseFloat(a['40rh']) || 0;
+        const rateB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || 0;
+        const transitA = parseInt(a.transit_time) || 30;
+        const transitB = parseInt(b.transit_time) || 30;
+
+        // Normalize rates (assuming typical range 1000-5000) and transit times (5-45 days)
+        const normalizedRateA = rateA / 5000;
+        const normalizedRateB = rateB / 5000;
+        const normalizedTransitA = transitA / 45;
+        const normalizedTransitB = transitB / 45;
+
+        // Weighted score: 60% price, 40% speed
+        const scoreA = (normalizedRateA * 0.6) + (normalizedTransitA * 0.4);
+        const scoreB = (normalizedRateB * 0.6) + (normalizedTransitB * 0.4);
+
+        return scoreA - scoreB;
+      });
+    }
+
+    // Second pass: process sorted combinations (always show extra info)
+    sortedCombinations.forEach((r: any) => {
       // 20GP containers
       if (qty20 > 0) {
         const rate = parseFloat(r['20gp']) || 0;
