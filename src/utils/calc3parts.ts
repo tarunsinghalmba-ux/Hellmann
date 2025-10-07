@@ -12,6 +12,8 @@ export interface CalcInput {
   qty20: number;        // 20GP container quantity
   qty40: number;        // 40GP container quantity
   qty40HC: number;      // 40HC container quantity
+  qty20RE: number;      // 20RE container quantity
+  qty40RH: number;      // 40RH container quantity
   lclCbm?: number;      // only when equipment = 'LCL'
   mode?: string;        // transportation mode filter
   vehicleType?: string; // vehicle type filter
@@ -75,7 +77,7 @@ const nf = (currency: string) => new Intl.NumberFormat(undefined, { style: 'curr
 function subTotal(items: LineItem[]) { return items.reduce((s, r) => s + r.total, 0); }
 
 export async function calculateThreeParts(input: CalcInput): Promise<CalcResult> {
-  const { direction, pol, pod, suburb, fromDate, toDate, qty20, qty40, qty40HC, lclCbm = 0 } = input;
+  const { direction, pol, pod, suburb, fromDate, toDate, qty20, qty40, qty40HC, qty20RE, qty40RH, lclCbm = 0 } = input;
   const queries: string[] = [];
   const polArray = Array.isArray(pol) ? pol : [pol];
   const podArray = Array.isArray(pod) ? pod : [pod];
@@ -110,14 +112,14 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const podFilter = podArray.length > 1
       ? ` AND UPPER("port_of_discharge") IN (${podArray.map(p => `UPPER('${p}')`).join(',')})`
       : ` AND UPPER("port_of_discharge") = UPPER('${podArray[0]}')`;
-    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","currency","mode","carrier","transit_time","service_type","dg","effective_date","valid_until" FROM "ocean_freight" WHERE ${polFilter}${podFilter} AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter} LIMIT 200`;
+    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","20re","40rh","currency","mode","carrier","transit_time","service_type","dg","effective_date","valid_until" FROM "ocean_freight" WHERE ${polFilter}${podFilter} AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter} LIMIT 200`;
     queries.push(oceanQuery);
 
     console.log('=== OCEAN FREIGHT QUERY ===');
     console.log('SQL:', oceanQuery);
 
     const { data: ocean } = await selectWithFallback(TABLE_KEYS.ocean, (q) => {
-      let query = q.select('port_of_loading,port_of_discharge,direction,20gp,40gp_40hc,currency,mode,carrier,transit_time,service_type')
+      let query = q.select('port_of_loading,port_of_discharge,direction,20gp,40gp_40hc,20re,40rh,currency,mode,carrier,transit_time,service_type')
         .in('port_of_loading', polArray)
         .in('port_of_discharge', podArray)
         .ilike('direction', direction)
@@ -244,6 +246,40 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         }
       }
 
+      // 20RE containers
+      if (qty20RE > 0) {
+        const rate = parseFloat(r['20re']) || 0;
+        if (rate > 0) {
+          const total = rate * qty20RE;
+          const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
+          oceanItems.push({
+            label: `${r.port_of_loading} → ${r.port_of_discharge} (20RE${extraInfo ? ` - ${extraInfo}` : ''})`,
+            unit: 'PER_CONTAINER',
+            qty: qty20RE,
+            rate,
+            total,
+            extra: extraInfo || undefined
+          });
+        }
+      }
+
+      // 40RH containers
+      if (qty40RH > 0) {
+        const rate = parseFloat(r['40rh']) || 0;
+        if (rate > 0) {
+          const total = rate * qty40RH;
+          const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
+          oceanItems.push({
+            label: `${r.port_of_loading} → ${r.port_of_discharge} (40RH${extraInfo ? ` - ${extraInfo}` : ''})`,
+            unit: 'PER_CONTAINER',
+            qty: qty40RH,
+            rate,
+            total,
+            extra: extraInfo || undefined
+          });
+        }
+      }
+
       // LCL
       if (lclCbm > 0) {
         const rate = parseFloat(r.cubic_rate) || 0;
@@ -268,7 +304,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
   const oceanUSD: Section = {
     currency: 'USD',
     title: 'Ocean Freight (USD)',
-    subtitle: `${polDisplay} → ${podDisplay} • ${getEquipmentSummary(qty20, qty40, qty40HC, lclCbm)}`,
+    subtitle: `${polDisplay} → ${podDisplay} • ${getEquipmentSummary(qty20, qty40, qty40HC, qty20RE, qty40RH, lclCbm)}`,
     items: oceanItems,
     subtotal: subTotal(oceanItems)
   };
@@ -419,7 +455,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
   const localsAUD: Section = {
     currency: 'AUD',
     title: 'Locals (AUD)',
-    subtitle: `${localPortsDisplay} • ${getEquipmentSummary(qty20, qty40, qty40HC, lclCbm)}`,
+    subtitle: `${localPortsDisplay} • ${getEquipmentSummary(qty20, qty40, qty40HC, qty20RE, qty40RH, lclCbm)}`,
     items: localsItems,
     subtotal: subTotal(localsItems)
   };
@@ -672,7 +708,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
   const deliveryAUD: Section = {
     currency: 'AUD',
     title: 'Destination Delivery (AUD)',
-    subtitle: `${transportLocationsDisplay} • ${getEquipmentSummary(qty20, qty40, qty40HC, lclCbm)}`,
+    subtitle: `${transportLocationsDisplay} • ${getEquipmentSummary(qty20, qty40, qty40HC, qty20RE, qty40RH, lclCbm)}`,
     items: delItems,
     subtotal: subTotal(delItems)
   };
@@ -707,11 +743,13 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
   };
 }
 
-function getEquipmentSummary(qty20: number, qty40: number, qty40HC: number, lclCbm: number): string {
+function getEquipmentSummary(qty20: number, qty40: number, qty40HC: number, qty20RE: number, qty40RH: number, lclCbm: number): string {
   const parts: string[] = [];
   if (qty20 > 0) parts.push(`${qty20}x20GP`);
   if (qty40 > 0) parts.push(`${qty40}x40GP`);
   if (qty40HC > 0) parts.push(`${qty40HC}x40HC`);
+  if (qty20RE > 0) parts.push(`${qty20RE}x20RE`);
+  if (qty40RH > 0) parts.push(`${qty40RH}x40RH`);
   if (lclCbm > 0) parts.push(`${lclCbm}CBM`);
   return parts.join(', ') || 'No equipment';
 }

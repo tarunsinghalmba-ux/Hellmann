@@ -22,6 +22,8 @@ const initialInputs: CalculationInputs = {
   qty20: 0,
   qty40: 0,
   qty40HC: 0,
+  qty20RE: 0,
+  qty40RH: 0,
   lclCbm: 0,
   dangerousGoods: false,
   dropTrailer: false,
@@ -229,6 +231,8 @@ export default function Home() {
         qty20: inputs.qty20,
         qty40: inputs.qty40,
         qty40HC: inputs.qty40HC,
+        qty20RE: inputs.qty20RE,
+        qty40RH: inputs.qty40RH,
         lclCbm: inputs.lclCbm,
         mode: inputs.mode,
         vehicleType: inputs.vehicleType,
@@ -266,7 +270,7 @@ export default function Home() {
   };
 
   const getTotalQuantity = (inputs: CalculationInputs): number => {
-    return inputs.qty20 + inputs.qty40 + inputs.qty40HC;
+    return inputs.qty20 + inputs.qty40 + inputs.qty40HC + inputs.qty20RE + inputs.qty40RH;
   };
 
   const handleExportCSV = () => {
@@ -291,6 +295,8 @@ export default function Home() {
     if (inputs.qty20 > 0) equipmentParts.push(`${inputs.qty20}x20GP`);
     if (inputs.qty40 > 0) equipmentParts.push(`${inputs.qty40}x40GP`);
     if (inputs.qty40HC > 0) equipmentParts.push(`${inputs.qty40HC}x40HC`);
+    if (inputs.qty20RE > 0) equipmentParts.push(`${inputs.qty20RE}x20RE`);
+    if (inputs.qty40RH > 0) equipmentParts.push(`${inputs.qty40RH}x40RH`);
     if (inputs.lclCbm > 0) equipmentParts.push(`${inputs.lclCbm}CBM`);
     const equipmentSummary = equipmentParts.join(', ') || 'No equipment';
     

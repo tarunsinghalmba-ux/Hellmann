@@ -219,7 +219,7 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
       inputs.validityFrom &&
       inputs.validityTo &&
       inputs.validityFrom <= inputs.validityTo &&
-      (inputs.qty20 > 0 || inputs.qty40 > 0 || inputs.qty40HC > 0 || inputs.lclCbm > 0)
+      (inputs.qty20 > 0 || inputs.qty40 > 0 || inputs.qty40HC > 0 || inputs.qty20RE > 0 || inputs.qty40RH > 0 || inputs.lclCbm > 0)
     );
   };
 
@@ -238,6 +238,8 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
       qty20: 0,
       qty40: 0,
       qty40HC: 0,
+      qty20RE: 0,
+      qty40RH: 0,
       lclCbm: 0,
       mode: '',
       vehicleType: '',
@@ -499,7 +501,7 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
 
       <div>
         <h3 className="text-sm font-medium text-gray-700 mb-3">Container Quantities</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">20GP</label>
             <input
@@ -527,6 +529,26 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
               min="0"
               value={inputs.qty40HC}
               onChange={(e) => handleChange('qty40HC', parseInt(e.target.value) || 0)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">20RE</label>
+            <input
+              type="number"
+              min="0"
+              value={inputs.qty20RE}
+              onChange={(e) => handleChange('qty20RE', parseInt(e.target.value) || 0)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">40RH</label>
+            <input
+              type="number"
+              min="0"
+              value={inputs.qty40RH}
+              onChange={(e) => handleChange('qty40RH', parseInt(e.target.value) || 0)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>

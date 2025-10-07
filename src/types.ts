@@ -56,6 +56,8 @@ export interface CalculationInputs {
   qty20: number;
   qty40: number;
   qty40HC: number;
+  qty20RE: number;
+  qty40RH: number;
   lclCbm: number;
   mode?: string;
   vehicleType?: string;
