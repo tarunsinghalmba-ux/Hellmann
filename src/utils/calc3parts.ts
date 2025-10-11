@@ -229,8 +229,19 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     let sortedCombinations = Array.from(seenCombinations.values());
 
     if (input.sortBy === 'cheapest') {
+      // Filter to only include records that have valid rates for the requested equipment
+      const validCombinations = sortedCombinations.filter((r: any) => {
+        // Check if record has at least one valid rate matching user's input
+        if (qty20 > 0 && r['20gp'] && parseFloat(r['20gp']) > 0) return true;
+        if (qty40 > 0 && r['40gp_40hc'] && parseFloat(r['40gp_40hc']) > 0) return true;
+        if (qty20RE > 0 && r['20re'] && parseFloat(r['20re']) > 0) return true;
+        if (qty40RH > 0 && r['40rh'] && parseFloat(r['40rh']) > 0) return true;
+        if (lclCbm && lclCbm > 0 && r['cubic_rate'] && parseFloat(r['cubic_rate']) > 0) return true;
+        return false;
+      });
+
       // Sort by lowest total cost (check all container types including LCL)
-      sortedCombinations.sort((a, b) => {
+      validCombinations.sort((a, b) => {
         // Calculate total cost based on user input quantities
         let costA = 0;
         let costB = 0;
@@ -254,19 +265,41 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         return costA - costB;
       });
       // Only keep the top (cheapest) record
-      sortedCombinations = sortedCombinations.slice(0, 1);
+      sortedCombinations = validCombinations.slice(0, 1);
     } else if (input.sortBy === 'fastest') {
+      // Filter to only include records that have valid rates for the requested equipment
+      const validCombinations = sortedCombinations.filter((r: any) => {
+        // Check if record has at least one valid rate matching user's input
+        if (qty20 > 0 && r['20gp'] && parseFloat(r['20gp']) > 0) return true;
+        if (qty40 > 0 && r['40gp_40hc'] && parseFloat(r['40gp_40hc']) > 0) return true;
+        if (qty20RE > 0 && r['20re'] && parseFloat(r['20re']) > 0) return true;
+        if (qty40RH > 0 && r['40rh'] && parseFloat(r['40rh']) > 0) return true;
+        if (lclCbm && lclCbm > 0 && r['cubic_rate'] && parseFloat(r['cubic_rate']) > 0) return true;
+        return false;
+      });
+
       // Sort by lowest transit time
-      sortedCombinations.sort((a, b) => {
+      validCombinations.sort((a, b) => {
         const transitA = parseInt(a.transit_time) || 999;
         const transitB = parseInt(b.transit_time) || 999;
         return transitA - transitB;
       });
       // Only keep the top (fastest) record
-      sortedCombinations = sortedCombinations.slice(0, 1);
+      sortedCombinations = validCombinations.slice(0, 1);
     } else if (input.sortBy === 'recommended') {
+      // Filter to only include records that have valid rates for the requested equipment
+      const validCombinations = sortedCombinations.filter((r: any) => {
+        // Check if record has at least one valid rate matching user's input
+        if (qty20 > 0 && r['20gp'] && parseFloat(r['20gp']) > 0) return true;
+        if (qty40 > 0 && r['40gp_40hc'] && parseFloat(r['40gp_40hc']) > 0) return true;
+        if (qty20RE > 0 && r['20re'] && parseFloat(r['20re']) > 0) return true;
+        if (qty40RH > 0 && r['40rh'] && parseFloat(r['40rh']) > 0) return true;
+        if (lclCbm && lclCbm > 0 && r['cubic_rate'] && parseFloat(r['cubic_rate']) > 0) return true;
+        return false;
+      });
+
       // Recommended: prioritize preferred vendors, then balance of price and speed
-      sortedCombinations.sort((a, b) => {
+      validCombinations.sort((a, b) => {
         // First priority: preferred_vendor (non-empty should come first)
         const hasPreferredA = a.preferred_vendor && a.preferred_vendor.trim() !== '';
         const hasPreferredB = b.preferred_vendor && b.preferred_vendor.trim() !== '';
@@ -324,7 +357,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         return scoreA - scoreB;
       });
       // Only keep the top (recommended) record
-      sortedCombinations = sortedCombinations.slice(0, 1);
+      sortedCombinations = validCombinations.slice(0, 1);
     }
 
     console.log(`Processing ${sortedCombinations.length} ocean freight record(s) after sorting`);
