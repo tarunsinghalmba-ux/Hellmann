@@ -502,47 +502,25 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
 
       <div>
         <h3 className="text-sm font-medium text-gray-700 mb-3">Filter Ocean Freight By</h3>
-        <div className="flex flex-wrap gap-6 mb-6">
+        <div className="flex gap-6 mb-6">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="radio"
               name="sortBy"
               value="all"
-              checked={!inputs.sortBy && !inputs.carrier}
-              onChange={(e) => {
-                handleChange('sortBy', undefined);
-                handleChange('carrier', undefined);
-              }}
+              checked={!inputs.sortBy}
+              onChange={(e) => handleChange('sortBy', undefined)}
               className="text-blue-600 focus:ring-blue-500"
             />
             <span className="text-sm font-medium text-gray-700">All</span>
           </label>
-          {carrierOptions.map((carrier) => (
-            <label key={carrier.value} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="sortBy"
-                value={`carrier:${carrier.value}`}
-                checked={inputs.carrier === carrier.value && !inputs.sortBy}
-                onChange={(e) => {
-                  handleChange('carrier', carrier.value);
-                  handleChange('sortBy', undefined);
-                }}
-                className="text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-gray-700">{carrier.label}</span>
-            </label>
-          ))}
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="radio"
               name="sortBy"
               value="cheapest"
               checked={inputs.sortBy === 'cheapest'}
-              onChange={(e) => {
-                handleChange('sortBy', e.target.value as 'cheapest' | 'fastest' | 'recommended');
-                handleChange('carrier', undefined);
-              }}
+              onChange={(e) => handleChange('sortBy', e.target.value as 'cheapest' | 'fastest' | 'recommended')}
               className="text-blue-600 focus:ring-blue-500"
             />
             <span className="text-sm font-medium text-gray-700">Cheapest</span>
@@ -553,10 +531,7 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
               name="sortBy"
               value="fastest"
               checked={inputs.sortBy === 'fastest'}
-              onChange={(e) => {
-                handleChange('sortBy', e.target.value as 'cheapest' | 'fastest' | 'recommended');
-                handleChange('carrier', undefined);
-              }}
+              onChange={(e) => handleChange('sortBy', e.target.value as 'cheapest' | 'fastest' | 'recommended')}
               className="text-blue-600 focus:ring-blue-500"
             />
             <span className="text-sm font-medium text-gray-700">Fastest</span>
@@ -567,10 +542,7 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
               name="sortBy"
               value="recommended"
               checked={inputs.sortBy === 'recommended'}
-              onChange={(e) => {
-                handleChange('sortBy', e.target.value as 'cheapest' | 'fastest' | 'recommended');
-                handleChange('carrier', undefined);
-              }}
+              onChange={(e) => handleChange('sortBy', e.target.value as 'cheapest' | 'fastest' | 'recommended')}
               className="text-blue-600 focus:ring-blue-500"
             />
             <span className="text-sm font-medium text-gray-700">Recommended</span>
