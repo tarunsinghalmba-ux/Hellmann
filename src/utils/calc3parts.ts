@@ -115,14 +115,14 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       ? ` AND UPPER("port_of_discharge") IN (${podArray.map(p => `UPPER('${p}')`).join(',')})`
       : ` AND UPPER("port_of_discharge") = UPPER('${podArray[0]}')`;
     const preferredVendorFilter = input.sortBy === 'recommended' ? ` AND "preferred_vendor" IS NOT NULL AND "preferred_vendor" != ''` : '';
-    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","20re","40rh","currency","mode","carrier","transit_time","service_type","dg","preferred_vendor","effective_date","valid_until" FROM "ocean_freight" WHERE ${polFilter}${podFilter} AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter}${preferredVendorFilter} LIMIT 200`;
+    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","20re","40rh","cubic_rate","currency","mode","carrier","transit_time","service_type","dg","preferred_vendor","effective_date","valid_until" FROM "ocean_freight" WHERE ${polFilter}${podFilter} AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter}${preferredVendorFilter} LIMIT 200`;
     queries.push(oceanQuery);
 
     console.log('=== OCEAN FREIGHT QUERY ===');
     console.log('SQL:', oceanQuery);
 
     const { data: ocean } = await selectWithFallback(TABLE_KEYS.ocean, (q) => {
-      let query = q.select('port_of_loading,port_of_discharge,direction,20gp,40gp_40hc,20re,40rh,currency,mode,carrier,transit_time,service_type,preferred_vendor')
+      let query = q.select('port_of_loading,port_of_discharge,direction,20gp,40gp_40hc,20re,40rh,cubic_rate,currency,mode,carrier,transit_time,service_type,preferred_vendor')
         .in('port_of_loading', polArray)
         .in('port_of_discharge', podArray)
         .ilike('direction', direction)
