@@ -501,7 +501,7 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
       </div>
 
       <div>
-        <h3 className="text-sm font-medium text-gray-700 mb-3">Sort Ocean Freight By</h3>
+        <h3 className="text-sm font-medium text-gray-700 mb-3">Filter Ocean Freight By</h3>
         <div className="flex gap-6 mb-6">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
