@@ -68,7 +68,7 @@ const SummaryPanel: React.FC<{ data: CalcResult }> = ({ data }) => {
   );
 };
 export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string[] }> = ({ data, emptyHints = [] }) => {
-  const [oceanSortBy, setOceanSortBy] = useState<'default' | 'cheapest' | 'fastest' | 'recommended'>('default');
+  const [oceanSortBy, setOceanSortBy] = useState<'cheapest' | 'fastest' | 'recommended'>('recommended');
 
   // Check if we have any results to show
   const hasResults = data.oceanUSD.items.length > 0 || data.localsAUD.items.length > 0 || data.deliveryAUD.items.length > 0;
@@ -150,14 +150,14 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
                 <span className="text-sm font-medium text-gray-700">Sort by:</span>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setOceanSortBy('default')}
+                    onClick={() => setOceanSortBy('recommended')}
                     className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                      oceanSortBy === 'default'
+                      oceanSortBy === 'recommended'
                         ? 'bg-blue-600 text-white'
                         : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                     }`}
                   >
-                    Default
+                    Recommended
                   </button>
                   <button
                     onClick={() => setOceanSortBy('cheapest')}
@@ -178,16 +178,6 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
                     }`}
                   >
                     Fastest
-                  </button>
-                  <button
-                    onClick={() => setOceanSortBy('recommended')}
-                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                      oceanSortBy === 'recommended'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    Recommended
                   </button>
                 </div>
               </div>
