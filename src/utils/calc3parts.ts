@@ -33,13 +33,14 @@ export interface CalcInput {
   unpackLoose?: boolean; // unpack loose filter
 }
 
-export interface LineItem { 
-  label: string; 
-  unit?: string; 
-  qty: number; 
-  rate: number; 
-  total: number; 
-  extra?: string; 
+export interface LineItem {
+  label: string;
+  unit?: string;
+  qty: number;
+  rate: number;
+  total: number;
+  extra?: string;
+  transitTime?: number;
 }
 
 export interface Section { 
@@ -206,7 +207,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
     console.log(`Unique combinations found: ${seenCombinations.size}`);
 
-    // Sort combinations based on sortBy option
+    // Sort combinations based on sortBy option (for filtering to top 1 record)
     let sortedCombinations = Array.from(seenCombinations.values());
 
     if (input.sortBy === 'cheapest') {
@@ -267,7 +268,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             qty: qty20,
             rate,
             total,
-            extra: extraInfo || undefined
+            extra: extraInfo || undefined,
+            transitTime: parseInt(r.transit_time) || 999
           });
         }
       }
@@ -284,7 +286,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             qty: qty40,
             rate,
             total,
-            extra: extraInfo || undefined
+            extra: extraInfo || undefined,
+            transitTime: parseInt(r.transit_time) || 999
           });
         }
       }
@@ -301,7 +304,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             qty: qty40HC,
             rate,
             total,
-            extra: extraInfo || undefined
+            extra: extraInfo || undefined,
+            transitTime: parseInt(r.transit_time) || 999
           });
         }
       }
@@ -318,7 +322,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             qty: qty20RE,
             rate,
             total,
-            extra: extraInfo || undefined
+            extra: extraInfo || undefined,
+            transitTime: parseInt(r.transit_time) || 999
           });
         }
       }
@@ -335,7 +340,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             qty: qty40RH,
             rate,
             total,
-            extra: extraInfo || undefined
+            extra: extraInfo || undefined,
+            transitTime: parseInt(r.transit_time) || 999
           });
         }
       }
@@ -352,7 +358,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             qty: lclCbm,
             rate,
             total,
-            extra: extraInfo || undefined
+            extra: extraInfo || undefined,
+            transitTime: parseInt(r.transit_time) || 999
           });
         }
       }
