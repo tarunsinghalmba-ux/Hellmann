@@ -211,10 +211,10 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     let sortedCombinations = Array.from(seenCombinations.values());
 
     if (input.sortBy === 'cheapest') {
-      // Sort by lowest rate (check all container types)
+      // Sort by lowest rate (check all container types including LCL)
       sortedCombinations.sort((a, b) => {
-        const rateA = parseFloat(a['20gp']) || parseFloat(a['40gp_40hc']) || parseFloat(a['20re']) || parseFloat(a['40rh']) || 0;
-        const rateB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || 0;
+        const rateA = parseFloat(a['20gp']) || parseFloat(a['40gp_40hc']) || parseFloat(a['20re']) || parseFloat(a['40rh']) || parseFloat(a['cubic_rate']) || 0;
+        const rateB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || parseFloat(b['cubic_rate']) || 0;
         return rateA - rateB;
       });
       // Only keep the top (cheapest) record
@@ -239,8 +239,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         if (!hasPreferredA && hasPreferredB) return 1;
 
         // Second priority: balance of price and speed (weighted score)
-        const rateA = parseFloat(a['20gp']) || parseFloat(a['40gp_40hc']) || parseFloat(a['20re']) || parseFloat(a['40rh']) || 0;
-        const rateB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || 0;
+        const rateA = parseFloat(a['20gp']) || parseFloat(a['40gp_40hc']) || parseFloat(a['20re']) || parseFloat(a['40rh']) || parseFloat(a['cubic_rate']) || 0;
+        const rateB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || parseFloat(b['cubic_rate']) || 0;
         const transitA = parseInt(a.transit_time) || 30;
         const transitB = parseInt(b.transit_time) || 30;
 
