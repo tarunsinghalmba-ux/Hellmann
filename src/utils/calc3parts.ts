@@ -350,12 +350,13 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       if (lclCbm > 0) {
         const rate = parseFloat(r.cubic_rate) || 0;
         if (rate > 0) {
-          const total = rate * lclCbm;
+          const effectiveCbm = Math.max(lclCbm, 1);
+          const total = rate * effectiveCbm;
           const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
           oceanItems.push({
             label: `${r.port_of_loading} → ${r.port_of_discharge} (LCL${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CBM',
-            qty: lclCbm,
+            qty: effectiveCbm,
             rate,
             total,
             extra: extraInfo || undefined,
