@@ -197,8 +197,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       if (!existing) {
         seenCombinations.set(uniqueKey, r);
       } else {
-        const existingRate = parseFloat(existing['20gp']) || parseFloat(existing['40gp_40hc']) || 0;
-        const currentRate = parseFloat(r['20gp']) || parseFloat(r['40gp_40hc']) || 0;
+        const existingRate = parseFloat(existing['20gp']) || parseFloat(existing['40gp_40hc']) || parseFloat(existing['20re']) || parseFloat(existing['40rh']) || parseFloat(existing['cubic_rate']) || 0;
+        const currentRate = parseFloat(r['20gp']) || parseFloat(r['40gp_40hc']) || parseFloat(r['20re']) || parseFloat(r['40rh']) || parseFloat(r['cubic_rate']) || 0;
         if (currentRate > 0 && (existingRate === 0 || currentRate < existingRate)) {
           seenCombinations.set(uniqueKey, r);
         }
@@ -235,14 +235,24 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         const hasPreferredA = a.preferred_vendor && a.preferred_vendor.trim() !== '';
         const hasPreferredB = b.preferred_vendor && b.preferred_vendor.trim() !== '';
 
-        if (hasPreferredA && !hasPreferredB) return -1;
-        if (!hasPreferredA && hasPreferredB) return 1;
+        console.log(`Comparing: A(${a.carrier}, PV: ${a.preferred_vendor}) vs B(${b.carrier}, PV: ${b.preferred_vendor})`);
+
+        if (hasPreferredA && !hasPreferredB) {
+          console.log(`-> A wins (has preferred vendor)`);
+          return -1;
+        }
+        if (!hasPreferredA && hasPreferredB) {
+          console.log(`-> B wins (has preferred vendor)`);
+          return 1;
+        }
 
         // Second priority: balance of price and speed (weighted score)
         const rateA = parseFloat(a['20gp']) || parseFloat(a['40gp_40hc']) || parseFloat(a['20re']) || parseFloat(a['40rh']) || parseFloat(a['cubic_rate']) || 0;
         const rateB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || parseFloat(b['cubic_rate']) || 0;
         const transitA = parseInt(a.transit_time) || 30;
         const transitB = parseInt(b.transit_time) || 30;
+
+        console.log(`-> Both have/don't have PV. Rates: A=${rateA}, B=${rateB}; Transit: A=${transitA}, B=${transitB}`);
 
         // Normalize rates (assuming typical range 1000-5000) and transit times (5-45 days)
         const normalizedRateA = rateA / 5000;
@@ -253,6 +263,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         // Weighted score: 60% price, 40% speed
         const scoreA = (normalizedRateA * 0.6) + (normalizedTransitA * 0.4);
         const scoreB = (normalizedRateB * 0.6) + (normalizedTransitB * 0.4);
+
+        console.log(`-> Scores: A=${scoreA}, B=${scoreB}`);
 
         return scoreA - scoreB;
       });
