@@ -193,31 +193,13 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       const uniqueKey = `${r.port_of_loading}→${r.port_of_discharge}|${r.carrier || 'N/A'}|${r.mode || 'N/A'}|${r.service_type || 'N/A'}|${r.transit_time || 'N/A'}|${r.dg || 'N/A'}`;
       const existing = seenCombinations.get(uniqueKey);
 
-      // Keep the record with the lowest total cost (or first if rates are equal)
+      // Keep the record with the lowest rate (or first if rates are equal)
       if (!existing) {
         seenCombinations.set(uniqueKey, r);
       } else {
-        // Calculate total cost for comparison
-        let existingCost = 0;
-        let currentCost = 0;
-
-        if (qty20 > 0 && existing['20gp']) existingCost += parseFloat(existing['20gp']) * qty20;
-        if (qty40 > 0 && existing['40gp_40hc']) existingCost += parseFloat(existing['40gp_40hc']) * qty40;
-        if (qty20RE > 0 && existing['20re']) existingCost += parseFloat(existing['20re']) * qty20RE;
-        if (qty40RH > 0 && existing['40rh']) existingCost += parseFloat(existing['40rh']) * qty40RH;
-        if (lclCbm && lclCbm > 0 && existing['cubic_rate']) existingCost += parseFloat(existing['cubic_rate']) * lclCbm;
-
-        if (qty20 > 0 && r['20gp']) currentCost += parseFloat(r['20gp']) * qty20;
-        if (qty40 > 0 && r['40gp_40hc']) currentCost += parseFloat(r['40gp_40hc']) * qty40;
-        if (qty20RE > 0 && r['20re']) currentCost += parseFloat(r['20re']) * qty20RE;
-        if (qty40RH > 0 && r['40rh']) currentCost += parseFloat(r['40rh']) * qty40RH;
-        if (lclCbm && lclCbm > 0 && r['cubic_rate']) currentCost += parseFloat(r['cubic_rate']) * lclCbm;
-
-        // If no valid costs, fall back to base rate comparison
-        if (existingCost === 0) existingCost = parseFloat(existing['20gp']) || parseFloat(existing['40gp_40hc']) || parseFloat(existing['20re']) || parseFloat(existing['40rh']) || parseFloat(existing['cubic_rate']) || 0;
-        if (currentCost === 0) currentCost = parseFloat(r['20gp']) || parseFloat(r['40gp_40hc']) || parseFloat(r['20re']) || parseFloat(r['40rh']) || parseFloat(r['cubic_rate']) || 0;
-
-        if (currentCost > 0 && (existingCost === 0 || currentCost < existingCost)) {
+        const existingRate = parseFloat(existing['20gp']) || parseFloat(existing['40gp_40hc']) || 0;
+        const currentRate = parseFloat(r['20gp']) || parseFloat(r['40gp_40hc']) || 0;
+        if (currentRate > 0 && (existingRate === 0 || currentRate < existingRate)) {
           seenCombinations.set(uniqueKey, r);
         }
       }
@@ -229,135 +211,53 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     let sortedCombinations = Array.from(seenCombinations.values());
 
     if (input.sortBy === 'cheapest') {
-      // Filter to only include records that have valid rates for the requested equipment
-      const validCombinations = sortedCombinations.filter((r: any) => {
-        // Check if record has at least one valid rate matching user's input
-        if (qty20 > 0 && r['20gp'] && parseFloat(r['20gp']) > 0) return true;
-        if (qty40 > 0 && r['40gp_40hc'] && parseFloat(r['40gp_40hc']) > 0) return true;
-        if (qty20RE > 0 && r['20re'] && parseFloat(r['20re']) > 0) return true;
-        if (qty40RH > 0 && r['40rh'] && parseFloat(r['40rh']) > 0) return true;
-        if (lclCbm && lclCbm > 0 && r['cubic_rate'] && parseFloat(r['cubic_rate']) > 0) return true;
-        return false;
-      });
-
-      // Sort by lowest total cost (check all container types including LCL)
-      validCombinations.sort((a, b) => {
-        // Calculate total cost based on user input quantities
-        let costA = 0;
-        let costB = 0;
-
-        if (qty20 > 0 && a['20gp']) costA += parseFloat(a['20gp']) * qty20;
-        if (qty40 > 0 && a['40gp_40hc']) costA += parseFloat(a['40gp_40hc']) * qty40;
-        if (qty20RE > 0 && a['20re']) costA += parseFloat(a['20re']) * qty20RE;
-        if (qty40RH > 0 && a['40rh']) costA += parseFloat(a['40rh']) * qty40RH;
-        if (lclCbm && lclCbm > 0 && a['cubic_rate']) costA += parseFloat(a['cubic_rate']) * lclCbm;
-
-        if (qty20 > 0 && b['20gp']) costB += parseFloat(b['20gp']) * qty20;
-        if (qty40 > 0 && b['40gp_40hc']) costB += parseFloat(b['40gp_40hc']) * qty40;
-        if (qty20RE > 0 && b['20re']) costB += parseFloat(b['20re']) * qty20RE;
-        if (qty40RH > 0 && b['40rh']) costB += parseFloat(b['40rh']) * qty40RH;
-        if (lclCbm && lclCbm > 0 && b['cubic_rate']) costB += parseFloat(b['cubic_rate']) * lclCbm;
-
-        // If no valid costs calculated, fall back to comparing base rates
-        if (costA === 0) costA = parseFloat(a['20gp']) || parseFloat(a['40gp_40hc']) || parseFloat(a['20re']) || parseFloat(a['40rh']) || parseFloat(a['cubic_rate']) || 0;
-        if (costB === 0) costB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || parseFloat(b['cubic_rate']) || 0;
-
-        return costA - costB;
+      // Sort by lowest rate (check all container types)
+      sortedCombinations.sort((a, b) => {
+        const rateA = parseFloat(a['20gp']) || parseFloat(a['40gp_40hc']) || parseFloat(a['20re']) || parseFloat(a['40rh']) || 0;
+        const rateB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || 0;
+        return rateA - rateB;
       });
       // Only keep the top (cheapest) record
-      sortedCombinations = validCombinations.slice(0, 1);
+      sortedCombinations = sortedCombinations.slice(0, 1);
     } else if (input.sortBy === 'fastest') {
-      // Filter to only include records that have valid rates for the requested equipment
-      const validCombinations = sortedCombinations.filter((r: any) => {
-        // Check if record has at least one valid rate matching user's input
-        if (qty20 > 0 && r['20gp'] && parseFloat(r['20gp']) > 0) return true;
-        if (qty40 > 0 && r['40gp_40hc'] && parseFloat(r['40gp_40hc']) > 0) return true;
-        if (qty20RE > 0 && r['20re'] && parseFloat(r['20re']) > 0) return true;
-        if (qty40RH > 0 && r['40rh'] && parseFloat(r['40rh']) > 0) return true;
-        if (lclCbm && lclCbm > 0 && r['cubic_rate'] && parseFloat(r['cubic_rate']) > 0) return true;
-        return false;
-      });
-
       // Sort by lowest transit time
-      validCombinations.sort((a, b) => {
+      sortedCombinations.sort((a, b) => {
         const transitA = parseInt(a.transit_time) || 999;
         const transitB = parseInt(b.transit_time) || 999;
         return transitA - transitB;
       });
       // Only keep the top (fastest) record
-      sortedCombinations = validCombinations.slice(0, 1);
+      sortedCombinations = sortedCombinations.slice(0, 1);
     } else if (input.sortBy === 'recommended') {
-      // Filter to only include records that have valid rates for the requested equipment
-      const validCombinations = sortedCombinations.filter((r: any) => {
-        // Check if record has at least one valid rate matching user's input
-        if (qty20 > 0 && r['20gp'] && parseFloat(r['20gp']) > 0) return true;
-        if (qty40 > 0 && r['40gp_40hc'] && parseFloat(r['40gp_40hc']) > 0) return true;
-        if (qty20RE > 0 && r['20re'] && parseFloat(r['20re']) > 0) return true;
-        if (qty40RH > 0 && r['40rh'] && parseFloat(r['40rh']) > 0) return true;
-        if (lclCbm && lclCbm > 0 && r['cubic_rate'] && parseFloat(r['cubic_rate']) > 0) return true;
-        return false;
-      });
-
       // Recommended: prioritize preferred vendors, then balance of price and speed
-      validCombinations.sort((a, b) => {
+      sortedCombinations.sort((a, b) => {
         // First priority: preferred_vendor (non-empty should come first)
         const hasPreferredA = a.preferred_vendor && a.preferred_vendor.trim() !== '';
         const hasPreferredB = b.preferred_vendor && b.preferred_vendor.trim() !== '';
 
-        console.log(`Comparing: A(${a.carrier}, PV: ${a.preferred_vendor}) vs B(${b.carrier}, PV: ${b.preferred_vendor})`);
-
-        if (hasPreferredA && !hasPreferredB) {
-          console.log(`-> A wins (has preferred vendor)`);
-          return -1;
-        }
-        if (!hasPreferredA && hasPreferredB) {
-          console.log(`-> B wins (has preferred vendor)`);
-          return 1;
-        }
+        if (hasPreferredA && !hasPreferredB) return -1;
+        if (!hasPreferredA && hasPreferredB) return 1;
 
         // Second priority: balance of price and speed (weighted score)
-        // Calculate total cost based on user input quantities
-        let costA = 0;
-        let costB = 0;
-
-        if (qty20 > 0 && a['20gp']) costA += parseFloat(a['20gp']) * qty20;
-        if (qty40 > 0 && a['40gp_40hc']) costA += parseFloat(a['40gp_40hc']) * qty40;
-        if (qty20RE > 0 && a['20re']) costA += parseFloat(a['20re']) * qty20RE;
-        if (qty40RH > 0 && a['40rh']) costA += parseFloat(a['40rh']) * qty40RH;
-        if (lclCbm && lclCbm > 0 && a['cubic_rate']) costA += parseFloat(a['cubic_rate']) * lclCbm;
-
-        if (qty20 > 0 && b['20gp']) costB += parseFloat(b['20gp']) * qty20;
-        if (qty40 > 0 && b['40gp_40hc']) costB += parseFloat(b['40gp_40hc']) * qty40;
-        if (qty20RE > 0 && b['20re']) costB += parseFloat(b['20re']) * qty20RE;
-        if (qty40RH > 0 && b['40rh']) costB += parseFloat(b['40rh']) * qty40RH;
-        if (lclCbm && lclCbm > 0 && b['cubic_rate']) costB += parseFloat(b['cubic_rate']) * lclCbm;
-
-        // If no valid costs calculated, fall back to comparing base rates
-        if (costA === 0) costA = parseFloat(a['20gp']) || parseFloat(a['40gp_40hc']) || parseFloat(a['20re']) || parseFloat(a['40rh']) || parseFloat(a['cubic_rate']) || 0;
-        if (costB === 0) costB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || parseFloat(b['cubic_rate']) || 0;
-
+        const rateA = parseFloat(a['20gp']) || parseFloat(a['40gp_40hc']) || parseFloat(a['20re']) || parseFloat(a['40rh']) || 0;
+        const rateB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || 0;
         const transitA = parseInt(a.transit_time) || 30;
         const transitB = parseInt(b.transit_time) || 30;
 
-        console.log(`-> Both have/don't have PV. Costs: A=${costA}, B=${costB}; Transit: A=${transitA}, B=${transitB}`);
-
-        // Normalize costs (using dynamic max for better scaling) and transit times (5-45 days)
-        const maxCost = Math.max(costA, costB, 1);
-        const normalizedCostA = costA / maxCost;
-        const normalizedCostB = costB / maxCost;
+        // Normalize rates (assuming typical range 1000-5000) and transit times (5-45 days)
+        const normalizedRateA = rateA / 5000;
+        const normalizedRateB = rateB / 5000;
         const normalizedTransitA = transitA / 45;
         const normalizedTransitB = transitB / 45;
 
         // Weighted score: 60% price, 40% speed
-        const scoreA = (normalizedCostA * 0.6) + (normalizedTransitA * 0.4);
-        const scoreB = (normalizedCostB * 0.6) + (normalizedTransitB * 0.4);
-
-        console.log(`-> Scores: A=${scoreA}, B=${scoreB}`);
+        const scoreA = (normalizedRateA * 0.6) + (normalizedTransitA * 0.4);
+        const scoreB = (normalizedRateB * 0.6) + (normalizedTransitB * 0.4);
 
         return scoreA - scoreB;
       });
       // Only keep the top (recommended) record
-      sortedCombinations = validCombinations.slice(0, 1);
+      sortedCombinations = sortedCombinations.slice(0, 1);
     }
 
     console.log(`Processing ${sortedCombinations.length} ocean freight record(s) after sorting`);
