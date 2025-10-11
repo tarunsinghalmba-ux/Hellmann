@@ -24,7 +24,7 @@ export async function fetchLocalCharges(filters: {
   return selectWithFallback(TABLE_KEYS.local, (q) =>
     q
       .select("*")
-      .eq("port_of_loading", port)
+      .eq("port_of_discharge", port)
       .eq("direction", direction)
       .lte("effective_date", to)
       .gte("valid_until", from)
