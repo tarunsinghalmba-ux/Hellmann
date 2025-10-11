@@ -114,7 +114,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const podFilter = podArray.length > 1
       ? ` AND UPPER("port_of_discharge") IN (${podArray.map(p => `UPPER('${p}')`).join(',')})`
       : ` AND UPPER("port_of_discharge") = UPPER('${podArray[0]}')`;
-    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","20re","40rh","cubic_rate","currency","mode","carrier","transit_time","service_type","dg","preferred_vendor","effective_date","valid_until" FROM "ocean_freight" WHERE ${polFilter}${podFilter} AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter} LIMIT 200`;
+    const preferredVendorFilter = input.sortBy === 'recommended' ? ` AND "preferred_vendor" IS NOT NULL AND "preferred_vendor" != ''` : '';
+    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","20re","40rh","cubic_rate","currency","mode","carrier","transit_time","service_type","dg","preferred_vendor","effective_date","valid_until" FROM "ocean_freight" WHERE ${polFilter}${podFilter} AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter}${preferredVendorFilter} LIMIT 200`;
     queries.push(oceanQuery);
 
     console.log('=== OCEAN FREIGHT QUERY ===');
@@ -130,31 +131,33 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         .gte('valid_until', fromDate)
         .limit(200);
 
-      // Note: Do NOT filter by preferred_vendor here - we need all records
-      // The sorting logic will prioritize preferred vendors
-
+      // Filter for preferred vendors only when recommended is selected
+      if (input.sortBy === 'recommended') {
+        query = query.not('preferred_vendor', 'is', null).neq('preferred_vendor', '');
+      }
+      
       if (input.mode) {
         query = query.ilike('mode', input.mode);
       }
-
+      
       if (input.carrier) {
         query = query.ilike('carrier', input.carrier);
       }
-
+      
       if (input.transitTime && parseInt(input.transitTime) > 0) {
         query = query.eq('transit_time', parseInt(input.transitTime));
       }
-
+      
       if (input.serviceType) {
         query = query.ilike('service_type', input.serviceType);
       }
-
+      
       if (input.dangerousGoods === true) {
         query = query.eq('dg', 'Yes');
       } else if (input.dangerousGoods === false) {
         query = query.eq('dg', 'No');
       }
-
+      
       return query;
     });
 
@@ -180,8 +183,11 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         return;
       }
 
-      // Note: Do NOT skip records without preferred_vendor
-      // The sorting logic will prioritize them, but we still want to show alternatives
+      // Skip if recommended is selected and preferred_vendor is empty
+      if (input.sortBy === 'recommended' && (!r.preferred_vendor || r.preferred_vendor.trim() === '')) {
+        console.log(`Skipping ocean record - no preferred vendor: ${r.carrier}`);
+        return;
+      }
 
       // Create unique key including carrier, mode, service type, transit time, and DG status
       const uniqueKey = `${r.port_of_loading}→${r.port_of_discharge}|${r.carrier || 'N/A'}|${r.mode || 'N/A'}|${r.service_type || 'N/A'}|${r.transit_time || 'N/A'}|${r.dg || 'N/A'}`;
