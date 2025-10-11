@@ -216,6 +216,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         const rateB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || 0;
         return rateA - rateB;
       });
+      // Only keep the top (cheapest) record
+      sortedCombinations = sortedCombinations.slice(0, 1);
     } else if (input.sortBy === 'fastest') {
       // Sort by lowest transit time
       sortedCombinations.sort((a, b) => {
@@ -223,6 +225,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         const transitB = parseInt(b.transit_time) || 999;
         return transitA - transitB;
       });
+      // Only keep the top (fastest) record
+      sortedCombinations = sortedCombinations.slice(0, 1);
     } else if (input.sortBy === 'recommended') {
       // Recommended: balance of price and speed (weighted score)
       sortedCombinations.sort((a, b) => {
@@ -243,7 +247,11 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
         return scoreA - scoreB;
       });
+      // Only keep the top (recommended) record
+      sortedCombinations = sortedCombinations.slice(0, 1);
     }
+
+    console.log(`Processing ${sortedCombinations.length} ocean freight record(s) after sorting`);
 
     // Second pass: process sorted combinations (always show extra info)
     sortedCombinations.forEach((r: any) => {
