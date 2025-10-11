@@ -229,8 +229,16 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       // Only keep the top (fastest) record
       sortedCombinations = sortedCombinations.slice(0, 1);
     } else if (input.sortBy === 'recommended') {
-      // Recommended: balance of price and speed (weighted score)
+      // Recommended: prioritize preferred vendors, then balance of price and speed
       sortedCombinations.sort((a, b) => {
+        // First priority: preferred_vendor (non-empty should come first)
+        const hasPreferredA = a.preferred_vendor && a.preferred_vendor.trim() !== '';
+        const hasPreferredB = b.preferred_vendor && b.preferred_vendor.trim() !== '';
+
+        if (hasPreferredA && !hasPreferredB) return -1;
+        if (!hasPreferredA && hasPreferredB) return 1;
+
+        // Second priority: balance of price and speed (weighted score)
         const rateA = parseFloat(a['20gp']) || parseFloat(a['40gp_40hc']) || parseFloat(a['20re']) || parseFloat(a['40rh']) || 0;
         const rateB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || 0;
         const transitA = parseInt(a.transit_time) || 30;
