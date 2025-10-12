@@ -114,8 +114,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const podFilter = podArray.length > 1
       ? ` AND UPPER("port_of_discharge") IN (${podArray.map(p => `UPPER('${p}')`).join(',')})`
       : ` AND UPPER("port_of_discharge") = UPPER('${podArray[0]}')`;
-    const preferredVendorFilter = input.sortBy === 'recommended' ? ` AND "preferred_vendor" IS NOT NULL AND "preferred_vendor" != ''` : '';
-    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","20re","40rh","cubic_rate","currency","mode","carrier","transit_time","service_type","dg","preferred_vendor","effective_date","valid_until" FROM "ocean_freight" WHERE ${polFilter}${podFilter} AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter}${preferredVendorFilter} LIMIT 200`;
+    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","20re","40rh","cubic_rate","currency","mode","carrier","transit_time","service_type","dg","preferred_vendor","effective_date","valid_until" FROM "ocean_freight" WHERE ${polFilter}${podFilter} AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter} LIMIT 200`;
     queries.push(oceanQuery);
 
     console.log('=== OCEAN FREIGHT QUERY ===');
@@ -131,11 +130,6 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         .gte('valid_until', fromDate)
         .limit(200);
 
-      // Filter for preferred vendors only when recommended is selected
-      if (input.sortBy === 'recommended') {
-        query = query.not('preferred_vendor', 'is', null).neq('preferred_vendor', '');
-      }
-      
       if (input.mode) {
         query = query.ilike('mode', input.mode);
       }
@@ -183,11 +177,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         return;
       }
 
-      // Skip if recommended is selected and preferred_vendor is empty
-      if (input.sortBy === 'recommended' && (!r.preferred_vendor || r.preferred_vendor.trim() === '')) {
-        console.log(`Skipping ocean record - no preferred vendor: ${r.carrier}`);
-        return;
-      }
+      // For recommended: don't skip records without preferred_vendor, just use it for sorting priority
 
       // Create unique key including carrier, mode, service type, transit time, and DG status
       const uniqueKey = `${r.port_of_loading}→${r.port_of_discharge}|${r.carrier || 'N/A'}|${r.mode || 'N/A'}|${r.service_type || 'N/A'}|${r.transit_time || 'N/A'}|${r.dg || 'N/A'}`;
@@ -197,8 +187,18 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       if (!existing) {
         seenCombinations.set(uniqueKey, r);
       } else {
-        const existingRate = parseFloat(existing['20gp']) || parseFloat(existing['40gp_40hc']) || 0;
-        const currentRate = parseFloat(r['20gp']) || parseFloat(r['40gp_40hc']) || 0;
+        // For LCL, use cubic_rate; for FCL, use container rates
+        let existingRate = 0;
+        let currentRate = 0;
+
+        if (lclCbm > 0) {
+          existingRate = parseFloat(existing['cubic_rate']) || 0;
+          currentRate = parseFloat(r['cubic_rate']) || 0;
+        } else {
+          existingRate = parseFloat(existing['20gp']) || parseFloat(existing['40gp_40hc']) || 0;
+          currentRate = parseFloat(r['20gp']) || parseFloat(r['40gp_40hc']) || 0;
+        }
+
         if (currentRate > 0 && (existingRate === 0 || currentRate < existingRate)) {
           seenCombinations.set(uniqueKey, r);
         }
