@@ -97,6 +97,12 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
       sorted.sort((a, b) => (a.transitTime || 999) - (b.transitTime || 999));
     } else if (oceanSortBy === 'recommended') {
       sorted.sort((a, b) => {
+        const hasPreferredA = a.preferredVendor && a.preferredVendor.trim() !== '';
+        const hasPreferredB = b.preferredVendor && b.preferredVendor.trim() !== '';
+
+        if (hasPreferredA && !hasPreferredB) return -1;
+        if (!hasPreferredA && hasPreferredB) return 1;
+
         const normalizedRateA = a.rate / 5000;
         const normalizedRateB = b.rate / 5000;
         const normalizedTransitA = (a.transitTime || 30) / 45;

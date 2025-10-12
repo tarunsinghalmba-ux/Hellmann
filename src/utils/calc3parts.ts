@@ -41,6 +41,7 @@ export interface LineItem {
   total: number;
   extra?: string;
   transitTime?: number;
+  preferredVendor?: string;
 }
 
 export interface Section { 
@@ -299,7 +300,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             rate,
             total,
             extra: extraInfo || undefined,
-            transitTime: parseInt(r.transit_time) || 999
+            transitTime: parseInt(r.transit_time) || 999,
+            preferredVendor: r.preferred_vendor || undefined
           });
         }
       }
@@ -317,7 +319,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             rate,
             total,
             extra: extraInfo || undefined,
-            transitTime: parseInt(r.transit_time) || 999
+            transitTime: parseInt(r.transit_time) || 999,
+            preferredVendor: r.preferred_vendor || undefined
           });
         }
       }
@@ -335,7 +338,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             rate,
             total,
             extra: extraInfo || undefined,
-            transitTime: parseInt(r.transit_time) || 999
+            transitTime: parseInt(r.transit_time) || 999,
+            preferredVendor: r.preferred_vendor || undefined
           });
         }
       }
@@ -353,7 +357,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             rate,
             total,
             extra: extraInfo || undefined,
-            transitTime: parseInt(r.transit_time) || 999
+            transitTime: parseInt(r.transit_time) || 999,
+            preferredVendor: r.preferred_vendor || undefined
           });
         }
       }
@@ -371,7 +376,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             rate,
             total,
             extra: extraInfo || undefined,
-            transitTime: parseInt(r.transit_time) || 999
+            transitTime: parseInt(r.transit_time) || 999,
+            preferredVendor: r.preferred_vendor || undefined
           });
         }
       }
@@ -390,7 +396,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             rate,
             total,
             extra: extraInfo || undefined,
-            transitTime: parseInt(r.transit_time) || 999
+            transitTime: parseInt(r.transit_time) || 999,
+            preferredVendor: r.preferred_vendor || undefined
           });
         }
       }
