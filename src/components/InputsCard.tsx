@@ -206,7 +206,23 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
   };
 
   const handleChange = (field: keyof CalculationInputs, value: any) => {
-    onChange({ ...inputs, [field]: value });
+    const updates: Partial<CalculationInputs> = { [field]: value };
+
+    // When LCL is entered with a value > 0, clear FCL quantities
+    if (field === 'lclCbm' && value > 0) {
+      updates.qty20 = 0;
+      updates.qty40 = 0;
+      updates.qty40HC = 0;
+      updates.qty20RE = 0;
+      updates.qty40RH = 0;
+    }
+
+    // When any FCL quantity is entered with a value > 0, clear LCL
+    if (['qty20', 'qty40', 'qty40HC', 'qty20RE', 'qty40RH'].includes(field) && value > 0) {
+      updates.lclCbm = 0;
+    }
+
+    onChange({ ...inputs, ...updates });
   };
 
   const isValidForm = () => {
