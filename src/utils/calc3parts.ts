@@ -425,14 +425,14 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       ? ` AND UPPER("port_of_discharge") IN (${localPortArray.map(p => `UPPER('${p}')`).join(',')})`
       : ` AND UPPER("port_of_discharge") = UPPER('${localPortArray[0]}')`;
     const localModeFilter = input.mode ? ` AND UPPER("mode") = UPPER('${input.mode}')` : '';
-    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","currency","effective_date","valid_until" FROM "local" WHERE UPPER("direction") = UPPER('${direction}')${localPortFilter} AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${localModeFilter} LIMIT 500`;
+    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","cubic_rate","currency","effective_date","valid_until" FROM "local" WHERE UPPER("direction") = UPPER('${direction}')${localPortFilter} AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${localModeFilter} LIMIT 500`;
     queries.push(localsQuery);
 
     console.log('=== LOCAL CHARGES QUERY ===');
     console.log('SQL:', localsQuery);
 
     const { data: locals } = await selectWithFallback(TABLE_KEYS.local, (q) => {
-      let base = q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,currency')
+      let base = q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,cubic_rate,currency')
         .ilike('direction', direction)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
