@@ -425,14 +425,14 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       ? ` AND UPPER("port_of_discharge") IN (${localPortArray.map(p => `UPPER('${p}')`).join(',')})`
       : ` AND UPPER("port_of_discharge") = UPPER('${localPortArray[0]}')`;
     const localModeFilter = input.mode ? ` AND UPPER("mode") = UPPER('${input.mode}')` : '';
-    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","cubic_rate","currency","effective_date","valid_until" FROM "local" WHERE UPPER("direction") = UPPER('${direction}')${localPortFilter} AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${localModeFilter} LIMIT 500`;
+    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","cubic_rate","minimum_rate_cbm","currency","effective_date","valid_until" FROM "local" WHERE UPPER("direction") = UPPER('${direction}')${localPortFilter} AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${localModeFilter} LIMIT 500`;
     queries.push(localsQuery);
 
     console.log('=== LOCAL CHARGES QUERY ===');
     console.log('SQL:', localsQuery);
 
     const { data: locals } = await selectWithFallback(TABLE_KEYS.local, (q) => {
-      let base = q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,cubic_rate,currency')
+      let base = q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,cubic_rate,minimum_rate_cbm,currency')
         .ilike('direction', direction)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
@@ -572,13 +572,21 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
       // LCL charges (if cubic rate available)
       if (lclCbm > 0 && r.cubic_rate) {
-        const rate = parseFloat(r.cubic_rate) || 0;
-        if (rate > 0) {
-          const total = rate * lclCbm;
+        const cubicRate = parseFloat(r.cubic_rate) || 0;
+        if (cubicRate > 0) {
+          const calculatedTotal = cubicRate * lclCbm;
+          const minimumRate = parseFloat(r.minimum_rate_cbm) || 0;
+
+          // Use minimum rate if calculated total is lower than minimum
+          const total = minimumRate > 0 && calculatedTotal < minimumRate ? minimumRate : calculatedTotal;
+          const rate = minimumRate > 0 && calculatedTotal < minimumRate ? minimumRate : cubicRate;
+          const qty = minimumRate > 0 && calculatedTotal < minimumRate ? 1 : lclCbm;
+          const unit = minimumRate > 0 && calculatedTotal < minimumRate ? 'MINIMUM' : 'PER_CBM';
+
           localsItems.push({
             label: `${r.charge_description || 'Local Charge'}${portInfo} (LCL)`,
-            unit: 'PER_CBM',
-            qty: lclCbm,
+            unit,
+            qty,
             rate,
             total,
             extra: r.cw1_charge_code ?? undefined
@@ -610,8 +618,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const transportVendorFilter = input.transportVendor ? ` AND UPPER("transport_vendor") = UPPER('${input.transportVendor}')` : '';
     const transportModeFilter = input.mode ? ` AND UPPER("mode") = UPPER('${input.mode}')` : '';
     const transportQuery = direction === 'import'
-      ? `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","cubic_rate","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("delivery_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter}${transportModeFilter} LIMIT 200`
-      : `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","cubic_rate","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("pick_up_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter}${transportModeFilter} LIMIT 200`;
+      ? `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","cubic_rate","minimum_rate_cbm","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("delivery_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter}${transportModeFilter} LIMIT 200`
+      : `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","cubic_rate","minimum_rate_cbm","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("pick_up_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter}${transportModeFilter} LIMIT 200`;
     queries.push(transportQuery);
 
     console.log('=== TRANSPORT QUERY ===');
@@ -619,7 +627,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
     const { data: transport } = await selectWithFallback(TABLE_KEYS.transport, (q) => {
       let base = q
-        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,cubic_rate,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized,fumigation_bmsb,sideloader_same_day_collection')
+        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,cubic_rate,minimum_rate_cbm,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized,fumigation_bmsb,sideloader_same_day_collection')
         .ilike('direction', direction)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
@@ -845,8 +853,24 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         // Check if there's a cubic rate for LCL transport
         const cubicRate = parseFloat(r.cubic_rate) || 0;
         if (cubicRate > 0) {
-          const rate = cubicRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge + fumigationCharge + sideloaderSamedayCharge;
-          const total = cubicRate * lclCbm;
+          const surchargeTotal = dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge + fumigationCharge + sideloaderSamedayCharge;
+          const calculatedTotal = (cubicRate * lclCbm) + surchargeTotal;
+          const minimumRate = parseFloat(r.minimum_rate_cbm) || 0;
+
+          // Use minimum rate if calculated total is lower than minimum
+          let total, rate, qty, unit;
+          if (minimumRate > 0 && calculatedTotal < minimumRate) {
+            total = minimumRate + surchargeTotal;
+            rate = minimumRate + surchargeTotal;
+            qty = 1;
+            unit = 'MINIMUM';
+          } else {
+            total = calculatedTotal;
+            rate = cubicRate + surchargeTotal;
+            qty = lclCbm;
+            unit = 'PER_CBM';
+          }
+
           const additionalCharges = [];
           if (dgSurcharge > 0) additionalCharges.push(`DG: ${dgSurcharge.toFixed(2)}`);
           if (dropTrailerCharge > 0) additionalCharges.push(`Drop Trailer: ${dropTrailerCharge.toFixed(2)}`);
@@ -860,8 +884,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
           delItems.push({
             label: `${baseLabel} (LCL${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
-            unit: 'PER_CBM',
-            qty: lclCbm,
+            unit,
+            qty,
             rate,
             total,
             extra: r.vehicle_type ?? undefined
