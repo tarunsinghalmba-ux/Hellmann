@@ -240,7 +240,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       // Only keep the top (fastest) record
       sortedCombinations = sortedCombinations.slice(0, 1);
     } else if (input.sortBy === 'recommended') {
-      // Recommended: prioritize preferred vendors, then balance of price and speed
+      // Recommended: sort all records with preferred vendors first, then by balance of price and speed
       sortedCombinations.sort((a, b) => {
         // First priority: preferred_vendor (non-empty should come first)
         const hasPreferredA = a.preferred_vendor && a.preferred_vendor.trim() !== '';
@@ -278,8 +278,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
         return scoreA - scoreB;
       });
-      // Only keep the top (recommended) record
-      sortedCombinations = sortedCombinations.slice(0, 1);
+      // Show all records sorted by recommendation (don't slice to 1)
     }
 
     console.log(`Processing ${sortedCombinations.length} ocean freight record(s) after sorting`);
