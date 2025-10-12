@@ -424,7 +424,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const localPortFilter = localPortArray.length > 1
       ? ` AND UPPER("port_of_discharge") IN (${localPortArray.map(p => `UPPER('${p}')`).join(',')})`
       : ` AND UPPER("port_of_discharge") = UPPER('${localPortArray[0]}')`;
-    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","currency","effective_date","valid_until" FROM "local" WHERE UPPER("direction") = UPPER('${direction}')${localPortFilter} AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}' LIMIT 500`;
+    const localModeFilter = input.mode ? ` AND UPPER("mode") = UPPER('${input.mode}')` : '';
+    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","currency","effective_date","valid_until" FROM "local" WHERE UPPER("direction") = UPPER('${direction}')${localPortFilter} AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${localModeFilter} LIMIT 500`;
     queries.push(localsQuery);
 
     console.log('=== LOCAL CHARGES QUERY ===');
@@ -444,6 +445,11 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       } else {
         // For multiple ports, use OR with ilike for each port
         base = base.or(localPortArray.map(p => `port_of_discharge.ilike.${p}`).join(','));
+      }
+
+      // Apply mode filter if specified
+      if (input.mode) {
+        base = base.ilike('mode', input.mode);
       }
 
       return base;
@@ -602,9 +608,10 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
   try {
     const vehicleTypeFilter = input.vehicleType ? ` AND UPPER("vehicle_type") = UPPER('${input.vehicleType}')` : '';
     const transportVendorFilter = input.transportVendor ? ` AND UPPER("transport_vendor") = UPPER('${input.transportVendor}')` : '';
+    const transportModeFilter = input.mode ? ` AND UPPER("mode") = UPPER('${input.mode}')` : '';
     const transportQuery = direction === 'import'
-      ? `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("delivery_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter} LIMIT 200`
-      : `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("pick_up_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter} LIMIT 200`;
+      ? `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("delivery_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter}${transportModeFilter} LIMIT 200`
+      : `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("pick_up_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter}${transportModeFilter} LIMIT 200`;
     queries.push(transportQuery);
 
     console.log('=== TRANSPORT QUERY ===');
@@ -625,6 +632,10 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
       if (input.transportVendor) {
         base = base.ilike('transport_vendor', input.transportVendor);
+      }
+
+      if (input.mode) {
+        base = base.ilike('mode', input.mode);
       }
 
       return direction === 'import'
