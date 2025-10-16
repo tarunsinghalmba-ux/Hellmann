@@ -33,8 +33,7 @@ const initialInputs: CalculationInputs = {
   sideLoaderAccessFees: false,
   unpackLoose: false,
   unpackPalletized: false,
-  fumigationSurcharge: false,
-  showIfApplicable: false
+  fumigationSurcharge: false
 };
 
 export default function Home() {
