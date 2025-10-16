@@ -84,10 +84,15 @@ export async function calculateRates(inputs: CalculationInputs): Promise<Calcula
   // Calculate Local Charges
   const localCharges = await fetchLocalCharges(inputs);
   for (const charge of localCharges) {
+    // Skip "If Applicable" charges if the checkbox is not checked
+    if ((charge as any).mandatory_or_if_applicable === 'If Applicable' && !inputs.showIfApplicable) {
+      continue;
+    }
+
     if (!results.has(charge.currency)) {
       results.set(charge.currency, initCurrency(charge.currency));
     }
-    
+
     const result = results.get(charge.currency)!;
     let quantity = 1;
     let total = 0;
