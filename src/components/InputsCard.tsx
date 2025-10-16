@@ -418,6 +418,18 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
+              checked={inputs.showIfApplicable || false}
+              onChange={(e) => handleChange('showIfApplicable', e.target.checked)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Show If Applicable Local Charges</span>
+          </label>
+        </div>
+
+        <div className="flex items-center">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
               checked={inputs.dangerousGoods || false}
               onChange={(e) => handleChange('dangerousGoods', e.target.checked)}
               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
