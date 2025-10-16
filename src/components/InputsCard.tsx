@@ -270,7 +270,16 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
       carrier: '',
       serviceType: '',
       transportVendor: '',
-      dangerousGoods: false
+      dangerousGoods: false,
+      dropTrailer: false,
+      heavyWeightSurcharge: false,
+      viaTailgate: false,
+      sideLoaderAccessFees: false,
+      unpackLoose: false,
+      unpackPalletized: false,
+      fumigationSurcharge: false,
+      sideloaderSamedayCollection: false,
+      showIfApplicable: false
     };
     onChange(initialInputs);
   };
