@@ -40,138 +40,186 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
     loadFilterOptions();
   }, []);
 
-  const loadFilterOptions = async () => {
-    try {
-      const ports = new Set<string>();
-      const locations = new Set<string>();
-      const currencies = new Set<string>();
-      const chargeCodes = new Set<string>();
-      const modes = new Set<string>();
-      const serviceTypes = new Set<string>();
-      const carriers = new Set<string>();
-      const vehicleTypes = new Set<string>();
+ const loadFilterOptions = async () => {
+  try {
+    const ports = new Set<string>();
+    const locations = new Set<string>();
+    const currencies = new Set<string>();
+    const chargeCodes = new Set<string>();
+    const modes = new Set<string>();
+    const serviceTypes = new Set<string>();
+    const carriers = new Set<string>();
+    const vehicleTypes = new Set<string>();
 
-      console.log('Starting to load filter options...');
+    console.log('Starting to load filter options...');
 
-      // Fetch ALL ocean freight data in one query
-      const { data: oceanData, error: oceanError } = await selectWithFallback(TABLE_KEYS.ocean, (q) =>
-        q.select('port_of_loading, port_of_discharge, currency, mode, service_type, carrier')
-         .limit(50000)
-      );
+    // DIAGNOSTIC: Fetch ocean data with detailed logging
+    console.log('Fetching ocean data...');
+    const { data: oceanData, error: oceanError } = await selectWithFallback(
+      TABLE_KEYS.ocean, 
+      (q) => q
+        .select('port_of_loading, port_of_discharge, currency, mode, service_type, carrier')
+        .limit(50000)
+    );
 
-      if (oceanError) {
-        console.error('Error fetching ocean data:', oceanError);
-      } else if (oceanData) {
-        console.log(`Fetched ${oceanData.length} ocean records`);
-        oceanData.forEach(item => {
-          const trimmedPOL = String(item.port_of_loading || '').trim();
-          const trimmedPOD = String(item.port_of_discharge || '').trim();
-          const trimmedCurrency = String(item.currency || '').trim();
-          const trimmedMode = String(item.mode || '').trim();
-          const trimmedServiceType = String(item.service_type || '').trim();
-          const trimmedCarrier = String(item.carrier || '').trim();
+    console.log('Ocean query result:', {
+      hasData: !!oceanData,
+      dataLength: oceanData?.length,
+      hasError: !!oceanError,
+      error: oceanError
+    });
 
-          if (trimmedPOL) ports.add(trimmedPOL);
-          if (trimmedPOD) ports.add(trimmedPOD);
-          if (trimmedCurrency) currencies.add(trimmedCurrency);
-          if (trimmedMode) modes.add(trimmedMode);
-          if (trimmedServiceType) serviceTypes.add(trimmedServiceType);
-          if (trimmedCarrier) carriers.add(trimmedCarrier);
-        });
-      }
+    if (oceanError) {
+      console.error('Error fetching ocean data:', oceanError);
+    } else if (oceanData) {
+      console.log(`Fetched ${oceanData.length} ocean records`);
+      
+      // DIAGNOSTIC: Sample first 5 records
+      console.log('First 5 ocean records:', oceanData.slice(0, 5));
+      
+      oceanData.forEach(item => {
+        const trimmedPOL = String(item.port_of_loading || '').trim();
+        const trimmedPOD = String(item.port_of_discharge || '').trim();
+        const trimmedCurrency = String(item.currency || '').trim();
+        const trimmedMode = String(item.mode || '').trim();
+        const trimmedServiceType = String(item.service_type || '').trim();
+        const trimmedCarrier = String(item.carrier || '').trim();
 
-      console.log(`Total ocean records fetched: ${oceanData?.length || 0}`);
-      console.log(`Unique ports after ocean: ${ports.size}`);
-
-      // Fetch ALL local charges data in one query
-      const { data: localData, error: localError } = await selectWithFallback(TABLE_KEYS.local, (q) =>
-        q.select('port_of_discharge, currency, cw1_charge_code')
-          .limit(50000)
-      );
-
-      if (localError) {
-        console.error('Error fetching local charges:', localError);
-      } else if (localData) {
-        console.log(`Fetched ${localData.length} local charge records`);
-        localData.forEach(item => {
-          const trimmedPOD = String(item.port_of_discharge || '').trim();
-          const trimmedCurrency = String(item.currency || '').trim();
-          const trimmedChargeCode = String(item.cw1_charge_code || '').trim();
-
-          if (trimmedPOD) ports.add(trimmedPOD);
-          if (trimmedCurrency) currencies.add(trimmedCurrency);
-          if (trimmedChargeCode) chargeCodes.add(trimmedChargeCode);
-        });
-      }
-
-      console.log(`Total local charge records fetched: ${localData?.length || 0}`);
-      console.log(`Unique ports after local charges: ${ports.size}`);
-
-      // Fetch ALL transport data in one query
-      const { data: transportData, error: transportError } = await selectWithFallback(TABLE_KEYS.transport, (q) =>
-        q.select('pick_up_location, delivery_location, currency, vehicle_type')
-         .limit(50000)                                                                                      
-      );
-
-      if (transportError) {
-        console.error('Error fetching transport data:', transportError);
-      } else if (transportData) {
-        console.log(`Fetched ${transportData.length} transport records`);
-        transportData.forEach(item => {
-          const trimmedPickup = String(item.pick_up_location || '').trim();
-          const trimmedDelivery = String(item.delivery_location || '').trim();
-          const trimmedCurrency = String(item.currency || '').trim();
-          const trimmedVehicleType = String(item.vehicle_type || '').trim();
-
-          if (trimmedPickup) locations.add(trimmedPickup);
-          if (trimmedDelivery) locations.add(trimmedDelivery);
-          if (trimmedCurrency) currencies.add(trimmedCurrency);
-          if (trimmedVehicleType) vehicleTypes.add(trimmedVehicleType);
-        });
-      }
-
-      console.log(`Total transport records fetched: ${transportData?.length || 0}`);
-
-      const portsList = Array.from(ports).sort();
-
-      // Send debug info to backend for logging
-      const debugInfo = {
-        totalPorts: ports.size,
-        totalModes: modes.size,
-        totalCarriers: carriers.size,
-        totalLocations: locations.size,
-        first10Ports: portsList.slice(0, 10),
-        last10Ports: portsList.slice(-10),
-        qPorts: portsList.filter(p => p.startsWith('Q')),
-        allPorts: portsList
-      };
-
-      fetch('/api/log-ports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(debugInfo)
-      }).catch(err => console.error('Failed to log ports:', err));
-
-      const newOptions = {
-        directions: ['import', 'export'],
-        ports: portsList,
-        locations: Array.from(locations).sort(),
-        containerTypes: ['20GP', '40GP', '40HC', 'LCL'],
-        currencies: Array.from(currencies).sort(),
-        chargeCodes: Array.from(chargeCodes).sort(),
-        units: ['PER_SHIPMENT', 'PER_CONTAINER', 'PER_CBM'],
-        modes: Array.from(modes).sort(),
-        serviceTypes: Array.from(serviceTypes).sort(),
-        carriers: Array.from(carriers).sort(),
-        vehicleTypes: Array.from(vehicleTypes).sort(),
-      };
-
-      setOptions(newOptions);
-    } catch (error) {
-      console.error('Error loading filter options:', error);
+        if (trimmedPOL) ports.add(trimmedPOL);
+        if (trimmedPOD) ports.add(trimmedPOD);
+        if (trimmedCurrency) currencies.add(trimmedCurrency);
+        if (trimmedMode) modes.add(trimmedMode);
+        if (trimmedServiceType) serviceTypes.add(trimmedServiceType);
+        if (trimmedCarrier) carriers.add(trimmedCarrier);
+      });
+      
+      console.log(`Unique POLs collected: ${Array.from(ports).filter(p => oceanData.some(d => d.port_of_loading === p)).length}`);
+      console.log(`Unique PODs collected: ${Array.from(ports).filter(p => oceanData.some(d => d.port_of_discharge === p)).length}`);
     }
-  };
 
+    console.log(`Total ocean records fetched: ${oceanData?.length || 0}`);
+    console.log(`Unique ports after ocean: ${ports.size}`);
+
+    // Fetch ALL local charges data
+    console.log('Fetching local charges data...');
+    const { data: localData, error: localError } = await selectWithFallback(
+      TABLE_KEYS.local, 
+      (q) => q
+        .select('port_of_discharge, currency, cw1_charge_code')
+        .limit(50000)
+    );
+
+    console.log('Local charges query result:', {
+      hasData: !!localData,
+      dataLength: localData?.length,
+      hasError: !!localError
+    });
+
+    if (localError) {
+      console.error('Error fetching local charges:', localError);
+    } else if (localData) {
+      console.log(`Fetched ${localData.length} local charge records`);
+      localData.forEach(item => {
+        const trimmedPOD = String(item.port_of_discharge || '').trim();
+        const trimmedCurrency = String(item.currency || '').trim();
+        const trimmedChargeCode = String(item.cw1_charge_code || '').trim();
+
+        if (trimmedPOD) ports.add(trimmedPOD);
+        if (trimmedCurrency) currencies.add(trimmedCurrency);
+        if (trimmedChargeCode) chargeCodes.add(trimmedChargeCode);
+      });
+    }
+
+    console.log(`Total local charge records fetched: ${localData?.length || 0}`);
+    console.log(`Unique ports after local charges: ${ports.size}`);
+
+    // Fetch ALL transport data
+    console.log('Fetching transport data...');
+    const { data: transportData, error: transportError } = await selectWithFallback(
+      TABLE_KEYS.transport, 
+      (q) => q
+        .select('pick_up_location, delivery_location, currency, vehicle_type')
+        .limit(50000)
+    );
+
+    console.log('Transport query result:', {
+      hasData: !!transportData,
+      dataLength: transportData?.length,
+      hasError: !!transportError
+    });
+
+    if (transportError) {
+      console.error('Error fetching transport data:', transportError);
+    } else if (transportData) {
+      console.log(`Fetched ${transportData.length} transport records`);
+      transportData.forEach(item => {
+        const trimmedPickup = String(item.pick_up_location || '').trim();
+        const trimmedDelivery = String(item.delivery_location || '').trim();
+        const trimmedCurrency = String(item.currency || '').trim();
+        const trimmedVehicleType = String(item.vehicle_type || '').trim();
+
+        if (trimmedPickup) locations.add(trimmedPickup);
+        if (trimmedDelivery) locations.add(trimmedDelivery);
+        if (trimmedCurrency) currencies.add(trimmedCurrency);
+        if (trimmedVehicleType) vehicleTypes.add(trimmedVehicleType);
+      });
+    }
+
+    console.log(`Total transport records fetched: ${transportData?.length || 0}`);
+
+    const portsList = Array.from(ports).sort();
+    
+    // DIAGNOSTIC: More detailed logging
+    console.log('=== FINAL RESULTS ===');
+    console.log(`Total unique ports: ${portsList.length}`);
+    console.log(`Expected ports: 399`);
+    console.log(`First 10 ports:`, portsList.slice(0, 10));
+    console.log(`Last 10 ports:`, portsList.slice(-10));
+    console.log(`Ports starting with A:`, portsList.filter(p => p.startsWith('A')).length);
+    console.log(`Ports starting with Q:`, portsList.filter(p => p.startsWith('Q')));
+
+    // Send debug info to backend for logging
+    const debugInfo = {
+      totalPorts: ports.size,
+      totalModes: modes.size,
+      totalCarriers: carriers.size,
+      totalLocations: locations.size,
+      oceanRecords: oceanData?.length || 0,
+      localRecords: localData?.length || 0,
+      transportRecords: transportData?.length || 0,
+      first10Ports: portsList.slice(0, 10),
+      last10Ports: portsList.slice(-10),
+      qPorts: portsList.filter(p => p.startsWith('Q')),
+      allPorts: portsList
+    };
+
+    fetch('/api/log-ports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(debugInfo)
+    }).catch(err => console.error('Failed to log ports:', err));
+
+    const newOptions = {
+      directions: ['import', 'export'],
+      ports: portsList,
+      locations: Array.from(locations).sort(),
+      containerTypes: ['20GP', '40GP', '40HC', 'LCL'],
+      currencies: Array.from(currencies).sort(),
+      chargeCodes: Array.from(chargeCodes).sort(),
+      units: ['PER_SHIPMENT', 'PER_CONTAINER', 'PER_CBM'],
+      modes: Array.from(modes).sort(),
+      serviceTypes: Array.from(serviceTypes).sort(),
+      carriers: Array.from(carriers).sort(),
+      vehicleTypes: Array.from(vehicleTypes).sort(),
+    };
+
+    console.log(`Setting options with ${newOptions.ports.length} ports`);
+    setOptions(newOptions);
+    console.log('Options state updated');
+  } catch (error) {
+    console.error('Error loading filter options:', error);
+  }
+};
   const handleFilterChange = (key: keyof FilterParams, value: string) => {
     onChange({ ...filters, [key]: value || undefined });
   };
