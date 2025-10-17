@@ -53,30 +53,16 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
 
       console.log('Starting to load filter options...');
 
-      // Fetch ALL ocean freight data - using larger batches and better loop logic
-      let oceanOffset = 0;
-      const oceanBatchSize = 5000;
-      let oceanFetched = 0;
+      // Fetch ALL ocean freight data in one query
+      const { data: oceanData, error: oceanError } = await selectWithFallback(TABLE_KEYS.ocean, (q) =>
+        q.select('port_of_loading, port_of_discharge, currency, mode, service_type, carrier')
+      );
 
-      while (true) {
-        const { data: oceanBatch, error } = await selectWithFallback(TABLE_KEYS.ocean, (q) =>
-          q.select('port_of_loading, port_of_discharge, currency, mode, service_type, carrier')
-            .range(oceanOffset, oceanOffset + oceanBatchSize - 1)
-        );
-
-        if (error) {
-          console.error('Error fetching ocean data:', error);
-          break;
-        }
-
-        if (!oceanBatch || oceanBatch.length === 0) {
-          break;
-        }
-
-        console.log(`Fetched batch of ${oceanBatch.length} ocean records (offset: ${oceanOffset})`);
-        oceanFetched += oceanBatch.length;
-
-        oceanBatch.forEach(item => {
+      if (oceanError) {
+        console.error('Error fetching ocean data:', oceanError);
+      } else if (oceanData) {
+        console.log(`Fetched ${oceanData.length} ocean records`);
+        oceanData.forEach(item => {
           const trimmedPOL = String(item.port_of_loading || '').trim();
           const trimmedPOD = String(item.port_of_discharge || '').trim();
           const trimmedCurrency = String(item.currency || '').trim();
@@ -91,41 +77,21 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
           if (trimmedServiceType) serviceTypes.add(trimmedServiceType);
           if (trimmedCarrier) carriers.add(trimmedCarrier);
         });
-
-        if (oceanBatch.length < oceanBatchSize) {
-          break;
-        }
-
-        oceanOffset += oceanBatchSize;
       }
 
-      console.log(`Total ocean records fetched: ${oceanFetched}`);
+      console.log(`Total ocean records fetched: ${oceanData?.length || 0}`);
       console.log(`Unique ports after ocean: ${ports.size}`);
 
-      // Fetch ALL local charges data
-      let localOffset = 0;
-      const localBatchSize = 5000;
-      let localFetched = 0;
+      // Fetch ALL local charges data in one query
+      const { data: localData, error: localError } = await selectWithFallback(TABLE_KEYS.local, (q) =>
+        q.select('port_of_discharge, currency, cw1_charge_code')
+      );
 
-      while (true) {
-        const { data: localBatch, error } = await selectWithFallback(TABLE_KEYS.local, (q) =>
-          q.select('port_of_discharge, currency, cw1_charge_code')
-            .range(localOffset, localOffset + localBatchSize - 1)
-        );
-
-        if (error) {
-          console.error('Error fetching local charges:', error);
-          break;
-        }
-
-        if (!localBatch || localBatch.length === 0) {
-          break;
-        }
-
-        console.log(`Fetched batch of ${localBatch.length} local charge records (offset: ${localOffset})`);
-        localFetched += localBatch.length;
-
-        localBatch.forEach(item => {
+      if (localError) {
+        console.error('Error fetching local charges:', localError);
+      } else if (localData) {
+        console.log(`Fetched ${localData.length} local charge records`);
+        localData.forEach(item => {
           const trimmedPOD = String(item.port_of_discharge || '').trim();
           const trimmedCurrency = String(item.currency || '').trim();
           const trimmedChargeCode = String(item.cw1_charge_code || '').trim();
@@ -134,41 +100,21 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
           if (trimmedCurrency) currencies.add(trimmedCurrency);
           if (trimmedChargeCode) chargeCodes.add(trimmedChargeCode);
         });
-
-        if (localBatch.length < localBatchSize) {
-          break;
-        }
-
-        localOffset += localBatchSize;
       }
 
-      console.log(`Total local charge records fetched: ${localFetched}`);
+      console.log(`Total local charge records fetched: ${localData?.length || 0}`);
       console.log(`Unique ports after local charges: ${ports.size}`);
 
-      // Fetch ALL transport data
-      let transportOffset = 0;
-      const transportBatchSize = 5000;
-      let transportFetched = 0;
+      // Fetch ALL transport data in one query
+      const { data: transportData, error: transportError } = await selectWithFallback(TABLE_KEYS.transport, (q) =>
+        q.select('pick_up_location, delivery_location, currency, vehicle_type')
+      );
 
-      while (true) {
-        const { data: transportBatch, error } = await selectWithFallback(TABLE_KEYS.transport, (q) =>
-          q.select('pick_up_location, delivery_location, currency, vehicle_type')
-            .range(transportOffset, transportOffset + transportBatchSize - 1)
-        );
-
-        if (error) {
-          console.error('Error fetching transport data:', error);
-          break;
-        }
-
-        if (!transportBatch || transportBatch.length === 0) {
-          break;
-        }
-
-        console.log(`Fetched batch of ${transportBatch.length} transport records (offset: ${transportOffset})`);
-        transportFetched += transportBatch.length;
-
-        transportBatch.forEach(item => {
+      if (transportError) {
+        console.error('Error fetching transport data:', transportError);
+      } else if (transportData) {
+        console.log(`Fetched ${transportData.length} transport records`);
+        transportData.forEach(item => {
           const trimmedPickup = String(item.pick_up_location || '').trim();
           const trimmedDelivery = String(item.delivery_location || '').trim();
           const trimmedCurrency = String(item.currency || '').trim();
@@ -179,15 +125,9 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
           if (trimmedCurrency) currencies.add(trimmedCurrency);
           if (trimmedVehicleType) vehicleTypes.add(trimmedVehicleType);
         });
-
-        if (transportBatch.length < transportBatchSize) {
-          break;
-        }
-
-        transportOffset += transportBatchSize;
       }
 
-      console.log(`Total transport records fetched: ${transportFetched}`);
+      console.log(`Total transport records fetched: ${transportData?.length || 0}`);
 
       const portsList = Array.from(ports).sort();
 
