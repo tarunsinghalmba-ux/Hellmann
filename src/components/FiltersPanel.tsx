@@ -9,6 +9,7 @@ interface FiltersPanelProps {
   onReset: () => void;
 }
 
+
 export default function FiltersPanel({ filters, onChange, onReset }: FiltersPanelProps) {
   const [options, setOptions] = useState<{
     directions: string[];
