@@ -191,37 +191,23 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
 
       const portsList = Array.from(ports).sort();
 
-      // Write debug info to a text file
-      const debugInfo = [
-        '======================================',
-        'FINAL RESULTS:',
-        `  Total unique ports: ${ports.size}`,
-        `  Total unique modes: ${modes.size}`,
-        `  Total unique carriers: ${carriers.size}`,
-        `  Total unique locations: ${locations.size}`,
-        '======================================',
-        `First 10 ports: ${portsList.slice(0, 10).join(', ')}`,
-        `Last 10 ports: ${portsList.slice(-10).join(', ')}`,
-        `Ports starting with Q: ${portsList.filter(p => p.startsWith('Q')).join(', ')}`,
-        `portsList.length = ${portsList.length}`,
-        '',
-        'ALL PORTS (sorted alphabetically):',
-        '--------------------------------------',
-        ...portsList,
-        '--------------------------------------',
-        `Total: ${portsList.length} ports`
-      ].join('\n');
+      // Send debug info to backend for logging
+      const debugInfo = {
+        totalPorts: ports.size,
+        totalModes: modes.size,
+        totalCarriers: carriers.size,
+        totalLocations: locations.size,
+        first10Ports: portsList.slice(0, 10),
+        last10Ports: portsList.slice(-10),
+        qPorts: portsList.filter(p => p.startsWith('Q')),
+        allPorts: portsList
+      };
 
-      // Download the debug file
-      const blob = new Blob([debugInfo], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'ports-debug-info.txt';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      fetch('/api/log-ports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(debugInfo)
+      }).catch(err => console.error('Failed to log ports:', err));
 
       const newOptions = {
         directions: ['import', 'export'],
