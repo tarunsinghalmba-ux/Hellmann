@@ -36,10 +36,6 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
     vehicleTypes: [],
   });
 
-  useEffect(() => {
-    loadFilterOptions();
-  }, []);
-
   const loadFilterOptions = async () => {
     console.log('🚀🚀🚀 NEW VERSION LOADED - DIRECT SUPABASE QUERIES 🚀🚀🚀');
     
@@ -261,6 +257,10 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
       console.error('❌ Error loading filter options:', error);
     }
   };
+
+  useEffect(() => {
+    loadFilterOptions();
+  }, []);
 
   const handleFilterChange = (key: keyof FilterParams, value: string) => {
     onChange({ ...filters, [key]: value || undefined });
