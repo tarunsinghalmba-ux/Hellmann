@@ -40,7 +40,7 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
     loadFilterOptions();
   }, []);
 
- const loadFilterOptions = async () => {
+const loadFilterOptions = async () => {
   try {
     const ports = new Set<string>();
     const locations = new Set<string>();
@@ -55,12 +55,14 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
 
     // DIAGNOSTIC: Fetch ocean data with detailed logging
     console.log('Fetching ocean data...');
-    const { data: oceanData, error: oceanError } = await selectWithFallback(
+    const oceanResult = await selectWithFallback(
       TABLE_KEYS.ocean, 
       (q) => q
         .select('port_of_loading, port_of_discharge, currency, mode, service_type, carrier')
         .limit(50000)
     );
+    const oceanData = oceanResult.data;
+    const oceanError = null;
 
     console.log('Ocean query result:', {
       hasData: !!oceanData,
@@ -220,6 +222,7 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
     console.error('Error loading filter options:', error);
   }
 };
+  
   const handleFilterChange = (key: keyof FilterParams, value: string) => {
     onChange({ ...filters, [key]: value || undefined });
   };
