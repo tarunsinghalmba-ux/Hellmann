@@ -13,7 +13,7 @@ export async function fetchOceanFreightRates(filters: {
       .eq("direction", direction)
       .lte("effective_date", to)
       .gte("valid_until", from)
-      .limit(500)
+      .limit(10000)
   );
 }
 
@@ -28,7 +28,7 @@ export async function fetchLocalCharges(filters: {
       .eq("direction", direction)
       .lte("effective_date", to)
       .gte("valid_until", from)
-      .limit(500)
+      .limit(10000)
   );
 }
 
@@ -43,7 +43,7 @@ export async function fetchTransportPricing(filters: {
       .lte("effective_date", to)
       .gte("valid_until", from);
     return direction === "import"
-      ? base.eq("delivery_location", point).limit(500)
-      : base.eq("pick_up_location", point).limit(500);
+      ? base.eq("delivery_location", point).limit(10000)
+      : base.eq("pick_up_location", point).limit(10000);
   });
 }
