@@ -56,6 +56,7 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
       // Fetch ALL ocean freight data in one query
       const { data: oceanData, error: oceanError } = await selectWithFallback(TABLE_KEYS.ocean, (q) =>
         q.select('port_of_loading, port_of_discharge, currency, mode, service_type, carrier')
+         .limit(50000)
       );
 
       if (oceanError) {
@@ -85,6 +86,7 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
       // Fetch ALL local charges data in one query
       const { data: localData, error: localError } = await selectWithFallback(TABLE_KEYS.local, (q) =>
         q.select('port_of_discharge, currency, cw1_charge_code')
+          .limit(50000)
       );
 
       if (localError) {
@@ -108,6 +110,7 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
       // Fetch ALL transport data in one query
       const { data: transportData, error: transportError } = await selectWithFallback(TABLE_KEYS.transport, (q) =>
         q.select('pick_up_location, delivery_location, currency, vehicle_type')
+         .limit(50000)                                                                                      
       );
 
       if (transportError) {
