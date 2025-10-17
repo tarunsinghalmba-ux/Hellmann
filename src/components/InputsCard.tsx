@@ -29,6 +29,35 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
   const [loadingServiceTypes, setLoadingServiceTypes] = useState(false);
   const [loadingTransportVendors, setLoadingTransportVendors] = useState(false);
 
+  const fetchAllRecords = async (tableName: string, selectFields: string, batchSize = 1000) => {
+    let allData: any[] = [];
+    let start = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const end = start + batchSize - 1;
+      const { data, error } = await supabase
+        .from(tableName)
+        .select(selectFields)
+        .range(start, end);
+
+      if (error) {
+        console.error(`Error fetching ${tableName}:`, error);
+        break;
+      }
+
+      if (data && data.length > 0) {
+        allData = [...allData, ...data];
+        start += batchSize;
+        hasMore = data.length === batchSize;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    return allData;
+  };
+
   useEffect(() => {
     loadPortOptions();
     loadLocationOptions();
@@ -48,19 +77,44 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
         return;
       }
 
-      const { data: originData } = await selectWithFallback(TABLE_KEYS.ocean, (q) =>
-        q.select('port_of_loading').order('port_of_loading')
-      );
-      
-      const { data: destinationData } = await selectWithFallback(TABLE_KEYS.ocean, (q) =>
-        q.select('port_of_discharge').order('port_of_discharge')
-      );
+      const ports = new Set<string>();
 
-      const origins = Array.from(new Set(originData?.map(item => item.port_of_loading).filter(Boolean) || []));
-      const destinations = Array.from(new Set(destinationData?.map(item => item.port_of_discharge).filter(Boolean) || []));
-      const allPorts = Array.from(new Set([...origins, ...destinations])).sort();
+      let oceanData: any[] = [];
+      try {
+        oceanData = await fetchAllRecords('ocean_freight', 'port_of_loading, port_of_discharge');
+      } catch (e) {
+        try {
+          oceanData = await fetchAllRecords('ocean_freight_rates', 'port_of_loading, port_of_discharge');
+        } catch (e2) {
+          console.error('Both ocean tables failed');
+        }
+      }
 
-      setPortOptions(allPorts.map(port => ({ value: String(port || ''), label: String(port || '') })));
+      oceanData.forEach((item: any) => {
+        const trimmedPOL = String(item.port_of_loading || '').trim();
+        const trimmedPOD = String(item.port_of_discharge || '').trim();
+        if (trimmedPOL) ports.add(trimmedPOL);
+        if (trimmedPOD) ports.add(trimmedPOD);
+      });
+
+      let localData: any[] = [];
+      try {
+        localData = await fetchAllRecords('local', 'port_of_discharge');
+      } catch (e) {
+        try {
+          localData = await fetchAllRecords('local_charges', 'port_of_discharge');
+        } catch (e2) {
+          console.error('Both local tables failed');
+        }
+      }
+
+      localData.forEach((item: any) => {
+        const trimmedPOD = String(item.port_of_discharge || '').trim();
+        if (trimmedPOD) ports.add(trimmedPOD);
+      });
+
+      const portsList = Array.from(ports).sort();
+      setPortOptions(portsList.map(port => ({ value: port, label: port })));
     } catch (error) {
       console.error('Error loading port options:', error);
     } finally {
@@ -77,17 +131,28 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
         return;
       }
 
-      const { data } = await selectWithFallback(TABLE_KEYS.transport, (q) =>
-        q.select('pick_up_location, delivery_location').order('pick_up_location')
-      );
-
       const locations = new Set<string>();
-      data?.forEach(item => {
-        if (item.pick_up_location && item.pick_up_location.trim()) locations.add(item.pick_up_location);
-        if (item.delivery_location && item.delivery_location.trim()) locations.add(item.delivery_location);
+
+      let transportData: any[] = [];
+      try {
+        transportData = await fetchAllRecords('transport', 'pick_up_location, delivery_location');
+      } catch (e) {
+        try {
+          transportData = await fetchAllRecords('transport_pricing', 'pick_up_location, delivery_location');
+        } catch (e2) {
+          console.error('Both transport tables failed');
+        }
+      }
+
+      transportData.forEach((item: any) => {
+        const trimmedPickup = String(item.pick_up_location || '').trim();
+        const trimmedDelivery = String(item.delivery_location || '').trim();
+        if (trimmedPickup) locations.add(trimmedPickup);
+        if (trimmedDelivery) locations.add(trimmedDelivery);
       });
 
-      setLocationOptions(Array.from(locations).sort().map(loc => ({ value: String(loc || ''), label: String(loc || '') })));
+      const locationsList = Array.from(locations).sort();
+      setLocationOptions(locationsList.map(loc => ({ value: loc, label: loc })));
     } catch (error) {
       console.error('Error loading location options:', error);
     } finally {
@@ -104,12 +169,26 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
         return;
       }
 
-      const { data } = await selectWithFallback(TABLE_KEYS.ocean, (q) =>
-        q.select('mode').order('mode')
-      );
+      const modes = new Set<string>();
 
-      const modes = Array.from(new Set(data?.map(item => item.mode).filter(Boolean) || []));
-      setModeOptions(modes.sort().map(mode => ({ value: String(mode || ''), label: String(mode || '') })));
+      let oceanData: any[] = [];
+      try {
+        oceanData = await fetchAllRecords('ocean_freight', 'mode');
+      } catch (e) {
+        try {
+          oceanData = await fetchAllRecords('ocean_freight_rates', 'mode');
+        } catch (e2) {
+          console.error('Both ocean tables failed');
+        }
+      }
+
+      oceanData.forEach((item: any) => {
+        const trimmedMode = String(item.mode || '').trim();
+        if (trimmedMode) modes.add(trimmedMode);
+      });
+
+      const modesList = Array.from(modes).sort();
+      setModeOptions(modesList.map(mode => ({ value: mode, label: mode })));
     } catch (error) {
       console.error('Error loading mode options:', error);
     } finally {
@@ -126,12 +205,26 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
         return;
       }
 
-      const { data } = await selectWithFallback(TABLE_KEYS.transport, (q) =>
-        q.select('vehicle_type').order('vehicle_type')
-      );
+      const vehicleTypes = new Set<string>();
 
-      const vehicleTypes = Array.from(new Set(data?.map(item => item.vehicle_type).filter(Boolean) || []));
-      setVehicleTypeOptions(vehicleTypes.sort().map(type => ({ value: String(type || ''), label: String(type || '') })));
+      let transportData: any[] = [];
+      try {
+        transportData = await fetchAllRecords('transport', 'vehicle_type');
+      } catch (e) {
+        try {
+          transportData = await fetchAllRecords('transport_pricing', 'vehicle_type');
+        } catch (e2) {
+          console.error('Both transport tables failed');
+        }
+      }
+
+      transportData.forEach((item: any) => {
+        const trimmedVehicleType = String(item.vehicle_type || '').trim();
+        if (trimmedVehicleType) vehicleTypes.add(trimmedVehicleType);
+      });
+
+      const vehicleTypesList = Array.from(vehicleTypes).sort();
+      setVehicleTypeOptions(vehicleTypesList.map(type => ({ value: type, label: type })));
     } catch (error) {
       console.error('Error loading vehicle type options:', error);
     } finally {
@@ -148,12 +241,26 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
         return;
       }
 
-      const { data } = await selectWithFallback(TABLE_KEYS.ocean, (q) =>
-        q.select('carrier').order('carrier')
-      );
+      const carriers = new Set<string>();
 
-      const carriers = Array.from(new Set(data?.map(item => item.carrier).filter(Boolean) || []));
-      setCarrierOptions(carriers.sort().map(carrier => ({ value: String(carrier || ''), label: String(carrier || '') })));
+      let oceanData: any[] = [];
+      try {
+        oceanData = await fetchAllRecords('ocean_freight', 'carrier');
+      } catch (e) {
+        try {
+          oceanData = await fetchAllRecords('ocean_freight_rates', 'carrier');
+        } catch (e2) {
+          console.error('Both ocean tables failed');
+        }
+      }
+
+      oceanData.forEach((item: any) => {
+        const trimmedCarrier = String(item.carrier || '').trim();
+        if (trimmedCarrier) carriers.add(trimmedCarrier);
+      });
+
+      const carriersList = Array.from(carriers).sort();
+      setCarrierOptions(carriersList.map(carrier => ({ value: carrier, label: carrier })));
     } catch (error) {
       console.error('Error loading carrier options:', error);
     } finally {
@@ -170,12 +277,26 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
         return;
       }
 
-      const { data } = await selectWithFallback(TABLE_KEYS.ocean, (q) =>
-        q.select('service_type').order('service_type')
-      );
+      const serviceTypes = new Set<string>();
 
-      const serviceTypes = Array.from(new Set(data?.map(item => item.service_type).filter(Boolean) || []));
-      setServiceTypeOptions(serviceTypes.sort().map(type => ({ value: String(type || ''), label: String(type || '') })));
+      let oceanData: any[] = [];
+      try {
+        oceanData = await fetchAllRecords('ocean_freight', 'service_type');
+      } catch (e) {
+        try {
+          oceanData = await fetchAllRecords('ocean_freight_rates', 'service_type');
+        } catch (e2) {
+          console.error('Both ocean tables failed');
+        }
+      }
+
+      oceanData.forEach((item: any) => {
+        const trimmedServiceType = String(item.service_type || '').trim();
+        if (trimmedServiceType) serviceTypes.add(trimmedServiceType);
+      });
+
+      const serviceTypesList = Array.from(serviceTypes).sort();
+      setServiceTypeOptions(serviceTypesList.map(type => ({ value: type, label: type })));
     } catch (error) {
       console.error('Error loading service type options:', error);
     } finally {
@@ -192,12 +313,26 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
         return;
       }
 
-      const { data } = await selectWithFallback(TABLE_KEYS.transport, (q) =>
-        q.select('transport_vendor').order('transport_vendor')
-      );
+      const transportVendors = new Set<string>();
 
-      const transportVendors = Array.from(new Set(data?.map(item => item.transport_vendor).filter(Boolean) || []));
-      setTransportVendorOptions(transportVendors.sort().map(vendor => ({ value: String(vendor || ''), label: String(vendor || '') })));
+      let transportData: any[] = [];
+      try {
+        transportData = await fetchAllRecords('transport', 'transport_vendor');
+      } catch (e) {
+        try {
+          transportData = await fetchAllRecords('transport_pricing', 'transport_vendor');
+        } catch (e2) {
+          console.error('Both transport tables failed');
+        }
+      }
+
+      transportData.forEach((item: any) => {
+        const trimmedVendor = String(item.transport_vendor || '').trim();
+        if (trimmedVendor) transportVendors.add(trimmedVendor);
+      });
+
+      const transportVendorsList = Array.from(transportVendors).sort();
+      setTransportVendorOptions(transportVendorsList.map(vendor => ({ value: vendor, label: vendor })));
     } catch (error) {
       console.error('Error loading transport vendor options:', error);
     } finally {
