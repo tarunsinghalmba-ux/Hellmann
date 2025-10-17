@@ -10,6 +10,8 @@ interface FiltersPanelProps {
 }
 
 export default function FiltersPanel({ filters, onChange, onReset }: FiltersPanelProps) {
+  console.log('🔥🔥🔥 FiltersPanel COMPONENT MOUNTED 🔥🔥🔥');
+
   const [options, setOptions] = useState<{
     directions: string[];
     ports: string[];
