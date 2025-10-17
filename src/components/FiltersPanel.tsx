@@ -198,9 +198,11 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
       console.log(`  Total unique locations: ${locations.size}`);
       console.log(`======================================`);
       console.log(`First 10 ports:`, portsList.slice(0, 10));
+      console.log(`Last 10 ports:`, portsList.slice(-10));
       console.log(`Ports starting with Q:`, portsList.filter(p => p.startsWith('Q')));
+      console.log(`portsList.length = ${portsList.length}`);
 
-      setOptions({
+      const newOptions = {
         directions: ['import', 'export'],
         ports: portsList,
         locations: Array.from(locations).sort(),
@@ -212,7 +214,11 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
         serviceTypes: Array.from(serviceTypes).sort(),
         carriers: Array.from(carriers).sort(),
         vehicleTypes: Array.from(vehicleTypes).sort(),
-      });
+      };
+
+      console.log(`About to set options with ${newOptions.ports.length} ports`);
+      setOptions(newOptions);
+      console.log(`Options state updated`);
     } catch (error) {
       console.error('Error loading filter options:', error);
     }
@@ -283,7 +289,9 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Port of Loading</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Port of Loading ({options.ports.length} ports)
+          </label>
           <select
             value={filters.pol || ''}
             onChange={(e) => handleFilterChange('pol', e.target.value)}
