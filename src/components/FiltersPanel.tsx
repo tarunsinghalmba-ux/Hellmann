@@ -51,26 +51,30 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
       const carriers = new Set<string>();
       const vehicleTypes = new Set<string>();
 
-      // Use RPC to get distinct values from ocean_freight
-      const { data: oceanPorts } = await selectWithFallback('ocean_freight' as any, (q: any) =>
-        q.rpc('get_distinct_ports')
-      ).catch(() => ({ data: null }));
+      console.log('Starting to load filter options...');
 
-      // Fallback: Fetch all ocean freight data
+      // Fetch ALL ocean freight data - using larger batches and better loop logic
       let oceanOffset = 0;
-      const oceanBatchSize = 2000;
-      let hasMoreOcean = true;
+      const oceanBatchSize = 5000;
+      let oceanFetched = 0;
 
-      while (hasMoreOcean) {
+      while (true) {
         const { data: oceanBatch, error } = await selectWithFallback(TABLE_KEYS.ocean, (q) =>
           q.select('port_of_loading, port_of_discharge, currency, mode, service_type, carrier')
             .range(oceanOffset, oceanOffset + oceanBatchSize - 1)
         );
 
-        if (error || !oceanBatch || oceanBatch.length === 0) {
-          hasMoreOcean = false;
+        if (error) {
+          console.error('Error fetching ocean data:', error);
           break;
         }
+
+        if (!oceanBatch || oceanBatch.length === 0) {
+          break;
+        }
+
+        console.log(`Fetched batch of ${oceanBatch.length} ocean records (offset: ${oceanOffset})`);
+        oceanFetched += oceanBatch.length;
 
         oceanBatch.forEach(item => {
           const trimmedPOL = String(item.port_of_loading || '').trim();
@@ -88,27 +92,38 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
           if (trimmedCarrier) carriers.add(trimmedCarrier);
         });
 
-        oceanOffset += oceanBatchSize;
         if (oceanBatch.length < oceanBatchSize) {
-          hasMoreOcean = false;
+          break;
         }
+
+        oceanOffset += oceanBatchSize;
       }
 
-      // Fetch all local charges data
-      let localOffset = 0;
-      const localBatchSize = 2000;
-      let hasMoreLocal = true;
+      console.log(`Total ocean records fetched: ${oceanFetched}`);
+      console.log(`Unique ports after ocean: ${ports.size}`);
 
-      while (hasMoreLocal) {
+      // Fetch ALL local charges data
+      let localOffset = 0;
+      const localBatchSize = 5000;
+      let localFetched = 0;
+
+      while (true) {
         const { data: localBatch, error } = await selectWithFallback(TABLE_KEYS.local, (q) =>
           q.select('port_of_discharge, currency, cw1_charge_code')
             .range(localOffset, localOffset + localBatchSize - 1)
         );
 
-        if (error || !localBatch || localBatch.length === 0) {
-          hasMoreLocal = false;
+        if (error) {
+          console.error('Error fetching local charges:', error);
           break;
         }
+
+        if (!localBatch || localBatch.length === 0) {
+          break;
+        }
+
+        console.log(`Fetched batch of ${localBatch.length} local charge records (offset: ${localOffset})`);
+        localFetched += localBatch.length;
 
         localBatch.forEach(item => {
           const trimmedPOD = String(item.port_of_discharge || '').trim();
@@ -120,27 +135,38 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
           if (trimmedChargeCode) chargeCodes.add(trimmedChargeCode);
         });
 
-        localOffset += localBatchSize;
         if (localBatch.length < localBatchSize) {
-          hasMoreLocal = false;
+          break;
         }
+
+        localOffset += localBatchSize;
       }
 
-      // Fetch all transport data
-      let transportOffset = 0;
-      const transportBatchSize = 2000;
-      let hasMoreTransport = true;
+      console.log(`Total local charge records fetched: ${localFetched}`);
+      console.log(`Unique ports after local charges: ${ports.size}`);
 
-      while (hasMoreTransport) {
+      // Fetch ALL transport data
+      let transportOffset = 0;
+      const transportBatchSize = 5000;
+      let transportFetched = 0;
+
+      while (true) {
         const { data: transportBatch, error } = await selectWithFallback(TABLE_KEYS.transport, (q) =>
           q.select('pick_up_location, delivery_location, currency, vehicle_type')
             .range(transportOffset, transportOffset + transportBatchSize - 1)
         );
 
-        if (error || !transportBatch || transportBatch.length === 0) {
-          hasMoreTransport = false;
+        if (error) {
+          console.error('Error fetching transport data:', error);
           break;
         }
+
+        if (!transportBatch || transportBatch.length === 0) {
+          break;
+        }
+
+        console.log(`Fetched batch of ${transportBatch.length} transport records (offset: ${transportOffset})`);
+        transportFetched += transportBatch.length;
 
         transportBatch.forEach(item => {
           const trimmedPickup = String(item.pick_up_location || '').trim();
@@ -154,17 +180,29 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
           if (trimmedVehicleType) vehicleTypes.add(trimmedVehicleType);
         });
 
-        transportOffset += transportBatchSize;
         if (transportBatch.length < transportBatchSize) {
-          hasMoreTransport = false;
+          break;
         }
+
+        transportOffset += transportBatchSize;
       }
 
-      console.log(`Loaded ${ports.size} unique ports, ${modes.size} modes, ${carriers.size} carriers`);
+      console.log(`Total transport records fetched: ${transportFetched}`);
+
+      const portsList = Array.from(ports).sort();
+      console.log(`======================================`);
+      console.log(`FINAL RESULTS:`);
+      console.log(`  Total unique ports: ${ports.size}`);
+      console.log(`  Total unique modes: ${modes.size}`);
+      console.log(`  Total unique carriers: ${carriers.size}`);
+      console.log(`  Total unique locations: ${locations.size}`);
+      console.log(`======================================`);
+      console.log(`First 10 ports:`, portsList.slice(0, 10));
+      console.log(`Ports starting with Q:`, portsList.filter(p => p.startsWith('Q')));
 
       setOptions({
         directions: ['import', 'export'],
-        ports: Array.from(ports).sort(),
+        ports: portsList,
         locations: Array.from(locations).sort(),
         containerTypes: ['20GP', '40GP', '40HC', 'LCL'],
         currencies: Array.from(currencies).sort(),
