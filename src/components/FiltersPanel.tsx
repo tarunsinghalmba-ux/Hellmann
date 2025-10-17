@@ -51,106 +51,116 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
       const carriers = new Set<string>();
       const vehicleTypes = new Set<string>();
 
-      // Fetch all ocean freight data in batches
+      // Use RPC to get distinct values from ocean_freight
+      const { data: oceanPorts } = await selectWithFallback('ocean_freight' as any, (q: any) =>
+        q.rpc('get_distinct_ports')
+      ).catch(() => ({ data: null }));
+
+      // Fallback: Fetch all ocean freight data
       let oceanOffset = 0;
-      const oceanBatchSize = 1000;
+      const oceanBatchSize = 2000;
       let hasMoreOcean = true;
 
       while (hasMoreOcean) {
-        const { data: oceanBatch } = await selectWithFallback(TABLE_KEYS.ocean, (q) =>
+        const { data: oceanBatch, error } = await selectWithFallback(TABLE_KEYS.ocean, (q) =>
           q.select('port_of_loading, port_of_discharge, currency, mode, service_type, carrier')
             .range(oceanOffset, oceanOffset + oceanBatchSize - 1)
         );
 
-        if (!oceanBatch || oceanBatch.length === 0) {
+        if (error || !oceanBatch || oceanBatch.length === 0) {
           hasMoreOcean = false;
-        } else {
-          oceanBatch.forEach(item => {
-            const trimmedPOL = String(item.port_of_loading || '').trim();
-            const trimmedPOD = String(item.port_of_discharge || '').trim();
-            const trimmedCurrency = String(item.currency || '').trim();
-            const trimmedMode = String(item.mode || '').trim();
-            const trimmedServiceType = String(item.service_type || '').trim();
-            const trimmedCarrier = String(item.carrier || '').trim();
+          break;
+        }
 
-            if (trimmedPOL) ports.add(trimmedPOL);
-            if (trimmedPOD) ports.add(trimmedPOD);
-            if (trimmedCurrency) currencies.add(trimmedCurrency);
-            if (trimmedMode) modes.add(trimmedMode);
-            if (trimmedServiceType) serviceTypes.add(trimmedServiceType);
-            if (trimmedCarrier) carriers.add(trimmedCarrier);
-          });
+        oceanBatch.forEach(item => {
+          const trimmedPOL = String(item.port_of_loading || '').trim();
+          const trimmedPOD = String(item.port_of_discharge || '').trim();
+          const trimmedCurrency = String(item.currency || '').trim();
+          const trimmedMode = String(item.mode || '').trim();
+          const trimmedServiceType = String(item.service_type || '').trim();
+          const trimmedCarrier = String(item.carrier || '').trim();
 
-          oceanOffset += oceanBatchSize;
-          if (oceanBatch.length < oceanBatchSize) {
-            hasMoreOcean = false;
-          }
+          if (trimmedPOL) ports.add(trimmedPOL);
+          if (trimmedPOD) ports.add(trimmedPOD);
+          if (trimmedCurrency) currencies.add(trimmedCurrency);
+          if (trimmedMode) modes.add(trimmedMode);
+          if (trimmedServiceType) serviceTypes.add(trimmedServiceType);
+          if (trimmedCarrier) carriers.add(trimmedCarrier);
+        });
+
+        oceanOffset += oceanBatchSize;
+        if (oceanBatch.length < oceanBatchSize) {
+          hasMoreOcean = false;
         }
       }
 
-      // Fetch all local charges data in batches
+      // Fetch all local charges data
       let localOffset = 0;
-      const localBatchSize = 1000;
+      const localBatchSize = 2000;
       let hasMoreLocal = true;
 
       while (hasMoreLocal) {
-        const { data: localBatch } = await selectWithFallback(TABLE_KEYS.local, (q) =>
+        const { data: localBatch, error } = await selectWithFallback(TABLE_KEYS.local, (q) =>
           q.select('port_of_discharge, currency, cw1_charge_code')
             .range(localOffset, localOffset + localBatchSize - 1)
         );
 
-        if (!localBatch || localBatch.length === 0) {
+        if (error || !localBatch || localBatch.length === 0) {
           hasMoreLocal = false;
-        } else {
-          localBatch.forEach(item => {
-            const trimmedPOD = String(item.port_of_discharge || '').trim();
-            const trimmedCurrency = String(item.currency || '').trim();
-            const trimmedChargeCode = String(item.cw1_charge_code || '').trim();
+          break;
+        }
 
-            if (trimmedPOD) ports.add(trimmedPOD);
-            if (trimmedCurrency) currencies.add(trimmedCurrency);
-            if (trimmedChargeCode) chargeCodes.add(trimmedChargeCode);
-          });
+        localBatch.forEach(item => {
+          const trimmedPOD = String(item.port_of_discharge || '').trim();
+          const trimmedCurrency = String(item.currency || '').trim();
+          const trimmedChargeCode = String(item.cw1_charge_code || '').trim();
 
-          localOffset += localBatchSize;
-          if (localBatch.length < localBatchSize) {
-            hasMoreLocal = false;
-          }
+          if (trimmedPOD) ports.add(trimmedPOD);
+          if (trimmedCurrency) currencies.add(trimmedCurrency);
+          if (trimmedChargeCode) chargeCodes.add(trimmedChargeCode);
+        });
+
+        localOffset += localBatchSize;
+        if (localBatch.length < localBatchSize) {
+          hasMoreLocal = false;
         }
       }
 
-      // Fetch all transport data in batches
+      // Fetch all transport data
       let transportOffset = 0;
-      const transportBatchSize = 1000;
+      const transportBatchSize = 2000;
       let hasMoreTransport = true;
 
       while (hasMoreTransport) {
-        const { data: transportBatch } = await selectWithFallback(TABLE_KEYS.transport, (q) =>
+        const { data: transportBatch, error } = await selectWithFallback(TABLE_KEYS.transport, (q) =>
           q.select('pick_up_location, delivery_location, currency, vehicle_type')
             .range(transportOffset, transportOffset + transportBatchSize - 1)
         );
 
-        if (!transportBatch || transportBatch.length === 0) {
+        if (error || !transportBatch || transportBatch.length === 0) {
           hasMoreTransport = false;
-        } else {
-          transportBatch.forEach(item => {
-            const trimmedPickup = String(item.pick_up_location || '').trim();
-            const trimmedDelivery = String(item.delivery_location || '').trim();
-            const trimmedCurrency = String(item.currency || '').trim();
-            const trimmedVehicleType = String(item.vehicle_type || '').trim();
+          break;
+        }
 
-            if (trimmedPickup) locations.add(trimmedPickup);
-            if (trimmedDelivery) locations.add(trimmedDelivery);
-            if (trimmedCurrency) currencies.add(trimmedCurrency);
-            if (trimmedVehicleType) vehicleTypes.add(trimmedVehicleType);
-          });
+        transportBatch.forEach(item => {
+          const trimmedPickup = String(item.pick_up_location || '').trim();
+          const trimmedDelivery = String(item.delivery_location || '').trim();
+          const trimmedCurrency = String(item.currency || '').trim();
+          const trimmedVehicleType = String(item.vehicle_type || '').trim();
 
-          transportOffset += transportBatchSize;
-          if (transportBatch.length < transportBatchSize) {
-            hasMoreTransport = false;
-          }
+          if (trimmedPickup) locations.add(trimmedPickup);
+          if (trimmedDelivery) locations.add(trimmedDelivery);
+          if (trimmedCurrency) currencies.add(trimmedCurrency);
+          if (trimmedVehicleType) vehicleTypes.add(trimmedVehicleType);
+        });
+
+        transportOffset += transportBatchSize;
+        if (transportBatch.length < transportBatchSize) {
+          hasMoreTransport = false;
         }
       }
+
+      console.log(`Loaded ${ports.size} unique ports, ${modes.size} modes, ${carriers.size} carriers`);
 
       setOptions({
         directions: ['import', 'export'],
