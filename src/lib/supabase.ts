@@ -9,5 +9,18 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = supabaseUrl && supabaseAnonKey 
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      db: {
+        schema: 'public',
+      },
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+      global: {
+        headers: {
+          'x-my-custom-header': 'freight-app',
+        },
+      },
+    })
   : null;
