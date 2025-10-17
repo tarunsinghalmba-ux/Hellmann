@@ -53,45 +53,89 @@ const loadFilterOptions = async () => {
 
     console.log('Starting to load filter options...');
 
-    // Helper function to fetch all records with pagination
-    const fetchAllRecords = async <T,>(
-      tableKeys: readonly string[],
+    // Import supabase directly
+    const { supabase } = await import('../lib/supabase');
+
+    if (!supabase) {
+      console.error('Supabase client not initialized');
+      return;
+    }
+
+    // TEST: First get the total count
+    const { count: totalCount, error: countError } = await supabase
+      .from('ocean_freight')
+      .select('*', { count: 'exact', head: true });
+
+    console.log('📊 Total records in ocean_freight:', totalCount);
+    console.log('❌ Count error:', countError);
+
+    // Helper function with detailed logging
+    const fetchAllRecordsDirect = async (
+      tableName: string,
       selectFields: string,
       batchSize = 1000
-    ): Promise<T[]> => {
-      let allData: T[] = [];
+    ) => {
+      let allData: any[] = [];
       let start = 0;
       let hasMore = true;
+      let batchNumber = 1;
 
-      while (hasMore) {
-        const result = await selectWithFallback(
-          tableKeys,
-          (q) => q.select(selectFields).range(start, start + batchSize - 1)
-        );
+      while (hasMore && batchNumber <= 10) { // Safety limit of 10 batches for testing
+        const end = start + batchSize - 1;
+        console.log(`\n📦 Batch ${batchNumber}: Fetching ${tableName} range [${start}, ${end}]`);
+        
+        const { data, error, count } = await supabase
+          .from(tableName)
+          .select(selectFields, { count: 'exact' })
+          .range(start, end);
 
-        const batch = result.data;
-        console.log(`Fetched batch from ${result.table}: ${batch.length} records (${start} to ${start + batchSize - 1})`);
+        if (error) {
+          console.error(`❌ Error fetching ${tableName}:`, error);
+          console.error('Error details:', JSON.stringify(error, null, 2));
+          break;
+        }
 
-        if (batch.length > 0) {
-          allData = [...allData, ...batch];
+        const fetchedCount = data?.length || 0;
+        console.log(`✅ Batch ${batchNumber} result: ${fetchedCount} records`);
+        console.log(`   Total count from query: ${count}`);
+        console.log(`   Cumulative records: ${allData.length + fetchedCount}`);
+
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
           start += batchSize;
-          hasMore = batch.length === batchSize; // Continue if we got a full batch
+          hasMore = data.length === batchSize;
+          batchNumber++;
+          
+          if (data.length < batchSize) {
+            console.log(`🏁 Last batch detected (${data.length} < ${batchSize})`);
+          }
         } else {
+          console.log('🛑 No more data to fetch');
           hasMore = false;
         }
       }
 
+      console.log(`\n✅ Total ${tableName} records fetched: ${allData.length}\n`);
       return allData;
     };
 
-    // Fetch ALL ocean freight data with pagination
-    console.log('Fetching ocean data with pagination...');
-    const oceanData = await fetchAllRecords(
-      TABLE_KEYS.ocean,
-      'port_of_loading, port_of_discharge, currency, mode, service_type, carrier'
-    );
+    // Try ocean_freight first, then fall back to ocean_freight_rates
+    console.log('=== FETCHING OCEAN DATA ===');
+    let oceanData: any[] = [];
+    try {
+      oceanData = await fetchAllRecordsDirect(
+        'ocean_freight',
+        'port_of_loading, port_of_discharge, currency, mode, service_type, carrier'
+      );
+    } catch (e) {
+      console.log('⚠️ ocean_freight failed, trying ocean_freight_rates...');
+      oceanData = await fetchAllRecordsDirect(
+        'ocean_freight_rates',
+        'port_of_loading, port_of_discharge, currency, mode, service_type, carrier'
+      );
+    }
 
-    console.log(`Total ocean records fetched: ${oceanData.length}`);
+    console.log(`\n🎯 Processing ${oceanData.length} ocean records...`);
 
     oceanData.forEach((item: any) => {
       const trimmedPOL = String(item.port_of_loading || '').trim();
@@ -111,14 +155,23 @@ const loadFilterOptions = async () => {
 
     console.log(`Unique ports after ocean: ${ports.size}`);
 
-    // Fetch ALL local charges data with pagination
-    console.log('Fetching local charges data with pagination...');
-    const localData = await fetchAllRecords(
-      TABLE_KEYS.local,
-      'port_of_discharge, currency, cw1_charge_code'
-    );
+    // Fetch local charges
+    console.log('\n=== FETCHING LOCAL CHARGES ===');
+    let localData: any[] = [];
+    try {
+      localData = await fetchAllRecordsDirect(
+        'local',
+        'port_of_discharge, currency, cw1_charge_code'
+      );
+    } catch (e) {
+      console.log('⚠️ local failed, trying local_charges...');
+      localData = await fetchAllRecordsDirect(
+        'local_charges',
+        'port_of_discharge, currency, cw1_charge_code'
+      );
+    }
 
-    console.log(`Total local charge records fetched: ${localData.length}`);
+    console.log(`\n🎯 Processing ${localData.length} local charge records...`);
 
     localData.forEach((item: any) => {
       const trimmedPOD = String(item.port_of_discharge || '').trim();
@@ -132,14 +185,23 @@ const loadFilterOptions = async () => {
 
     console.log(`Unique ports after local charges: ${ports.size}`);
 
-    // Fetch ALL transport data with pagination
-    console.log('Fetching transport data with pagination...');
-    const transportData = await fetchAllRecords(
-      TABLE_KEYS.transport,
-      'pick_up_location, delivery_location, currency, vehicle_type'
-    );
+    // Fetch transport data
+    console.log('\n=== FETCHING TRANSPORT DATA ===');
+    let transportData: any[] = [];
+    try {
+      transportData = await fetchAllRecordsDirect(
+        'transport',
+        'pick_up_location, delivery_location, currency, vehicle_type'
+      );
+    } catch (e) {
+      console.log('⚠️ transport failed, trying transport_pricing...');
+      transportData = await fetchAllRecordsDirect(
+        'transport_pricing',
+        'pick_up_location, delivery_location, currency, vehicle_type'
+      );
+    }
 
-    console.log(`Total transport records fetched: ${transportData.length}`);
+    console.log(`\n🎯 Processing ${transportData.length} transport records...`);
 
     transportData.forEach((item: any) => {
       const trimmedPickup = String(item.pick_up_location || '').trim();
@@ -155,13 +217,19 @@ const loadFilterOptions = async () => {
 
     const portsList = Array.from(ports).sort();
 
-    console.log('=== FINAL RESULTS ===');
-    console.log(`Total ocean records: ${oceanData.length} (expected 6228)`);
-    console.log(`Total unique ports: ${portsList.length} (expected 399)`);
-    console.log(`Total modes: ${modes.size}`);
-    console.log(`Total carriers: ${carriers.size}`);
-    console.log(`First 10 ports:`, portsList.slice(0, 10));
-    console.log(`Last 10 ports:`, portsList.slice(-10));
+    console.log('\n' + '='.repeat(50));
+    console.log('🎉 FINAL RESULTS');
+    console.log('='.repeat(50));
+    console.log(`📊 Total ocean records: ${oceanData.length} (expected ~6228)`);
+    console.log(`📊 Total local records: ${localData.length}`);
+    console.log(`📊 Total transport records: ${transportData.length}`);
+    console.log(`🚢 Total unique ports: ${portsList.length} (expected 399)`);
+    console.log(`🚂 Total modes: ${modes.size}`);
+    console.log(`🚚 Total carriers: ${carriers.size}`);
+    console.log(`📍 Total locations: ${locations.size}`);
+    console.log(`\n📋 First 10 ports:`, portsList.slice(0, 10));
+    console.log(`📋 Last 10 ports:`, portsList.slice(-10));
+    console.log('='.repeat(50) + '\n');
 
     // Send debug info to backend for logging
     const debugInfo = {
@@ -198,11 +266,11 @@ const loadFilterOptions = async () => {
       vehicleTypes: Array.from(vehicleTypes).sort(),
     };
 
-    console.log(`Setting options with ${newOptions.ports.length} ports`);
+    console.log(`✅ Setting options with ${newOptions.ports.length} ports`);
     setOptions(newOptions);
-    console.log('Options state updated successfully!');
+    console.log('✅ Options state updated successfully!');
   } catch (error) {
-    console.error('Error loading filter options:', error);
+    console.error('❌ Error loading filter options:', error);
   }
 };
   
