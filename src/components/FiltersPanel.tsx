@@ -68,27 +68,43 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
 
       // Process ocean freight data
       oceanRates?.forEach(item => {
-        if (item.port_of_loading && String(item.port_of_loading || '').trim()) ports.add(String(item.port_of_loading || ''));
-        if (item.port_of_discharge && String(item.port_of_discharge || '').trim()) ports.add(String(item.port_of_discharge || ''));
-        if (item.currency && String(item.currency || '').trim()) currencies.add(String(item.currency || ''));
-        if (item.mode && String(item.mode || '').trim()) modes.add(String(item.mode || ''));
-        if (item.service_type && String(item.service_type || '').trim()) serviceTypes.add(String(item.service_type || ''));
-        if (item.carrier && String(item.carrier || '').trim()) carriers.add(String(item.carrier || ''));
+        const trimmedPOL = String(item.port_of_loading || '').trim();
+        const trimmedPOD = String(item.port_of_discharge || '').trim();
+        const trimmedCurrency = String(item.currency || '').trim();
+        const trimmedMode = String(item.mode || '').trim();
+        const trimmedServiceType = String(item.service_type || '').trim();
+        const trimmedCarrier = String(item.carrier || '').trim();
+
+        if (trimmedPOL) ports.add(trimmedPOL);
+        if (trimmedPOD) ports.add(trimmedPOD);
+        if (trimmedCurrency) currencies.add(trimmedCurrency);
+        if (trimmedMode) modes.add(trimmedMode);
+        if (trimmedServiceType) serviceTypes.add(trimmedServiceType);
+        if (trimmedCarrier) carriers.add(trimmedCarrier);
       });
 
       // Process local charges data
       localCharges?.forEach(item => {
-        if (item.port_of_discharge && String(item.port_of_discharge || '').trim()) ports.add(String(item.port_of_discharge || ''));
-        if (item.currency && String(item.currency || '').trim()) currencies.add(String(item.currency || ''));
-        if (item.cw1_charge_code && String(item.cw1_charge_code || '').trim()) chargeCodes.add(String(item.cw1_charge_code || ''));
+        const trimmedPOD = String(item.port_of_discharge || '').trim();
+        const trimmedCurrency = String(item.currency || '').trim();
+        const trimmedChargeCode = String(item.cw1_charge_code || '').trim();
+
+        if (trimmedPOD) ports.add(trimmedPOD);
+        if (trimmedCurrency) currencies.add(trimmedCurrency);
+        if (trimmedChargeCode) chargeCodes.add(trimmedChargeCode);
       });
 
       // Process transport data
       transport?.forEach(item => {
-        if (item.pick_up_location && String(item.pick_up_location || '').trim()) locations.add(String(item.pick_up_location || ''));
-        if (item.delivery_location && String(item.delivery_location || '').trim()) locations.add(String(item.delivery_location || ''));
-        if (item.currency && String(item.currency || '').trim()) currencies.add(String(item.currency || ''));
-        if (item.vehicle_type && String(item.vehicle_type || '').trim()) vehicleTypes.add(String(item.vehicle_type || ''));
+        const trimmedPickup = String(item.pick_up_location || '').trim();
+        const trimmedDelivery = String(item.delivery_location || '').trim();
+        const trimmedCurrency = String(item.currency || '').trim();
+        const trimmedVehicleType = String(item.vehicle_type || '').trim();
+
+        if (trimmedPickup) locations.add(trimmedPickup);
+        if (trimmedDelivery) locations.add(trimmedDelivery);
+        if (trimmedCurrency) currencies.add(trimmedCurrency);
+        if (trimmedVehicleType) vehicleTypes.add(trimmedVehicleType);
       });
 
       setOptions({
