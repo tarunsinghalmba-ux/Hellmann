@@ -190,17 +190,38 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
       console.log(`Total transport records fetched: ${transportFetched}`);
 
       const portsList = Array.from(ports).sort();
-      console.log(`======================================`);
-      console.log(`FINAL RESULTS:`);
-      console.log(`  Total unique ports: ${ports.size}`);
-      console.log(`  Total unique modes: ${modes.size}`);
-      console.log(`  Total unique carriers: ${carriers.size}`);
-      console.log(`  Total unique locations: ${locations.size}`);
-      console.log(`======================================`);
-      console.log(`First 10 ports:`, portsList.slice(0, 10));
-      console.log(`Last 10 ports:`, portsList.slice(-10));
-      console.log(`Ports starting with Q:`, portsList.filter(p => p.startsWith('Q')));
-      console.log(`portsList.length = ${portsList.length}`);
+
+      // Write debug info to a text file
+      const debugInfo = [
+        '======================================',
+        'FINAL RESULTS:',
+        `  Total unique ports: ${ports.size}`,
+        `  Total unique modes: ${modes.size}`,
+        `  Total unique carriers: ${carriers.size}`,
+        `  Total unique locations: ${locations.size}`,
+        '======================================',
+        `First 10 ports: ${portsList.slice(0, 10).join(', ')}`,
+        `Last 10 ports: ${portsList.slice(-10).join(', ')}`,
+        `Ports starting with Q: ${portsList.filter(p => p.startsWith('Q')).join(', ')}`,
+        `portsList.length = ${portsList.length}`,
+        '',
+        'ALL PORTS (sorted alphabetically):',
+        '--------------------------------------',
+        ...portsList,
+        '--------------------------------------',
+        `Total: ${portsList.length} ports`
+      ].join('\n');
+
+      // Download the debug file
+      const blob = new Blob([debugInfo], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ports-debug-info.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
 
       const newOptions = {
         directions: ['import', 'export'],
@@ -216,9 +237,7 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
         vehicleTypes: Array.from(vehicleTypes).sort(),
       };
 
-      console.log(`About to set options with ${newOptions.ports.length} ports`);
       setOptions(newOptions);
-      console.log(`Options state updated`);
     } catch (error) {
       console.error('Error loading filter options:', error);
     }
