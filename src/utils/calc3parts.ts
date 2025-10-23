@@ -431,8 +431,9 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.log('=== LOCAL CHARGES QUERY ===');
     console.log('SQL:', localsQuery);
 
-    const { data: locals } = await selectWithFallback(TABLE_KEYS.local, (q) => {
-      let base = q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,cubic_rate,minimum_rate_cbm,mandatory_or_if_applicable,currency,service_provider,mode')
+    // Fetch filtered local charges
+    const { data: localsFiltered } = await selectWithFallback(TABLE_KEYS.local, (q) => {
+      let base = q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,cubic_rate,minimum_rate_cbm,mandatory_or_if_applicable,currency,service_provider,mode,record_id')
         .ilike('direction', direction)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
@@ -459,6 +460,38 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
       return base;
     });
+
+    // Always fetch HWL service provider results
+    const { data: localsHWL } = await selectWithFallback(TABLE_KEYS.local, (q) => {
+      let base = q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,cubic_rate,minimum_rate_cbm,mandatory_or_if_applicable,currency,service_provider,mode,record_id')
+        .ilike('direction', direction)
+        .eq('currency', 'AUD')
+        .lte('effective_date', toDate)
+        .gte('valid_until', fromDate)
+        .eq('service_provider', 'HWL')
+        .limit(500);
+
+      // Apply case-insensitive port filtering
+      if (localPortArray.length === 1) {
+        base = base.ilike('port_of_discharge', localPortArray[0]);
+      } else {
+        // For multiple ports, use OR with ilike for each port
+        base = base.or(localPortArray.map(p => `port_of_discharge.ilike.${p}`).join(','));
+      }
+
+      // Apply mode filter if specified
+      if (input.mode) {
+        base = base.ilike('mode', input.mode);
+      }
+
+      return base;
+    });
+
+    // Combine and deduplicate results based on record_id
+    const combinedLocals = [...(localsFiltered || []), ...(localsHWL || [])];
+    const locals = Array.from(
+      new Map(combinedLocals.map(item => [item.record_id, item])).values()
+    );
 
     console.log('Local Charges Results:');
     console.log('- Row count:', locals?.length || 0);

@@ -46,7 +46,9 @@ export async function fetchLocalCharges(filters: {
   serviceProvider?: string;
 }) {
   const { port, direction, from, to, mode, serviceProvider } = filters;
-  return selectWithFallback(TABLE_KEYS.local, (q) => {
+
+  // Fetch filtered results
+  const filteredResult = await selectWithFallback(TABLE_KEYS.local, (q) => {
     let query = q
       .select("*")
       .eq("port_of_discharge", port)
@@ -64,6 +66,34 @@ export async function fetchLocalCharges(filters: {
 
     return query.limit(10000);
   });
+
+  // Always fetch HWL results
+  const hwlResult = await selectWithFallback(TABLE_KEYS.local, (q) => {
+    let query = q
+      .select("*")
+      .eq("port_of_discharge", port)
+      .eq("direction", direction)
+      .lte("effective_date", to)
+      .gte("valid_until", from)
+      .eq("service_provider", "HWL");
+
+    if (mode) {
+      query = query.eq("mode", mode);
+    }
+
+    return query.limit(10000);
+  });
+
+  // Combine results and remove duplicates based on record_id
+  const combinedData = [...(filteredResult.data || []), ...(hwlResult.data || [])];
+  const uniqueData = Array.from(
+    new Map(combinedData.map(item => [item.record_id, item])).values()
+  );
+
+  return {
+    data: uniqueData,
+    error: filteredResult.error || hwlResult.error
+  };
 }
 
 export async function fetchTransportPricing(filters: {
