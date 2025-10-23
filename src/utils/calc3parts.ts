@@ -432,7 +432,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.log('SQL:', localsQuery);
 
     const { data: locals } = await selectWithFallback(TABLE_KEYS.local, (q) => {
-      let base = q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,cubic_rate,minimum_rate_cbm,mandatory_or_if_applicable,currency')
+      let base = q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,cubic_rate,minimum_rate_cbm,mandatory_or_if_applicable,currency,service_provider,mode')
         .ilike('direction', direction)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
@@ -450,6 +450,11 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       // Apply mode filter if specified
       if (input.mode) {
         base = base.ilike('mode', input.mode);
+      }
+
+      // Apply service provider (carrier) filter if specified
+      if (input.carrier) {
+        base = base.ilike('service_provider', input.carrier);
       }
 
       return base;

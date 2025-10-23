@@ -163,7 +163,10 @@ async function fetchOceanFreight(inputs: CalculationInputs): Promise<OceanFreigh
       pod: inputs.pod,
       direction: inputs.direction,
       from: inputs.validityFrom,
-      to: inputs.validityTo
+      to: inputs.validityTo,
+      carrier: inputs.carrier,
+      serviceType: inputs.serviceType,
+      mode: inputs.mode
     });
     return data;
   } catch (error: any) {
@@ -179,7 +182,10 @@ async function fetchTransport(inputs: CalculationInputs): Promise<TransportPrici
       point: inputs.point,
       direction: inputs.direction,
       from: inputs.validityFrom,
-      to: inputs.validityTo
+      to: inputs.validityTo,
+      vehicleType: inputs.vehicleType,
+      transportVendor: inputs.transportVendor,
+      mode: inputs.mode
     });
     return data;
   } catch (error: any) {
@@ -196,7 +202,9 @@ async function fetchLocalCharges(inputs: CalculationInputs): Promise<LocalCharge
       port,
       direction: inputs.direction,
       from: inputs.validityFrom,
-      to: inputs.validityTo
+      to: inputs.validityTo,
+      mode: inputs.mode,
+      serviceProvider: inputs.carrier // Using carrier as service provider filter
     });
     return data;
   } catch (error: any) {
