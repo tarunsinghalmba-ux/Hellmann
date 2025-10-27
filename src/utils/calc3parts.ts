@@ -431,9 +431,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.log('=== LOCAL CHARGES QUERY ===');
     console.log('SQL:', localsQuery);
 
-    // Fetch filtered local charges
-    const { data: localsFiltered } = await selectWithFallback(TABLE_KEYS.local, (q) => {
-      let base = q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,cubic_rate,minimum_rate_cbm,mandatory_or_if_applicable,currency,service_provider,mode,record_id')
+    const { data: locals } = await selectWithFallback(TABLE_KEYS.local, (q) => {
+      let base = q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,cubic_rate,minimum_rate_cbm,mandatory_or_if_applicable,currency,service_provider,mode')
         .ilike('direction', direction)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
@@ -460,38 +459,6 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
       return base;
     });
-
-    // Always fetch HWL service provider results
-    const { data: localsHWL } = await selectWithFallback(TABLE_KEYS.local, (q) => {
-      let base = q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,cubic_rate,minimum_rate_cbm,mandatory_or_if_applicable,currency,service_provider,mode,record_id')
-        .ilike('direction', direction)
-        .eq('currency', 'AUD')
-        .lte('effective_date', toDate)
-        .gte('valid_until', fromDate)
-        .eq('service_provider', 'HWL')
-        .limit(500);
-
-      // Apply case-insensitive port filtering
-      if (localPortArray.length === 1) {
-        base = base.ilike('port_of_discharge', localPortArray[0]);
-      } else {
-        // For multiple ports, use OR with ilike for each port
-        base = base.or(localPortArray.map(p => `port_of_discharge.ilike.${p}`).join(','));
-      }
-
-      // Apply mode filter if specified
-      if (input.mode) {
-        base = base.ilike('mode', input.mode);
-      }
-
-      return base;
-    });
-
-    // Combine and deduplicate results based on record_id
-    const combinedLocals = [...(localsFiltered || []), ...(localsHWL || [])];
-    const locals = Array.from(
-      new Map(combinedLocals.map(item => [item.record_id, item])).values()
-    );
 
     console.log('Local Charges Results:');
     console.log('- Row count:', locals?.length || 0);
@@ -668,10 +635,9 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.log('=== TRANSPORT QUERY ===');
     console.log('SQL:', transportQuery);
 
-    // Fetch filtered transport results
-    const { data: transportFiltered } = await selectWithFallback(TABLE_KEYS.transport, (q) => {
+    const { data: transport } = await selectWithFallback(TABLE_KEYS.transport, (q) => {
       let base = q
-        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,cubic_rate,minimum_rate_cbm,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized,fumigation_bmsb,sideloader_same_day_collection,record_id')
+        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,cubic_rate,minimum_rate_cbm,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized,fumigation_bmsb,sideloader_same_day_collection')
         .ilike('direction', direction)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
@@ -694,36 +660,6 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         ? base.ilike('delivery_location', `%${suburb}%`)
         : base.ilike('pick_up_location', `%${suburb}%`);
     });
-
-    // Always fetch Hellmann Transport results
-    const { data: transportHellmann } = await selectWithFallback(TABLE_KEYS.transport, (q) => {
-      let base = q
-        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,cubic_rate,minimum_rate_cbm,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized,fumigation_bmsb,sideloader_same_day_collection,record_id')
-        .ilike('direction', direction)
-        .eq('currency', 'AUD')
-        .lte('effective_date', toDate)
-        .gte('valid_until', fromDate)
-        .eq('transport_vendor', 'Hellmann Transport')
-        .limit(200);
-
-      if (input.vehicleType) {
-        base = base.ilike('vehicle_type', input.vehicleType);
-      }
-
-      if (input.mode) {
-        base = base.ilike('mode', input.mode);
-      }
-
-      return direction === 'import'
-        ? base.ilike('delivery_location', `%${suburb}%`)
-        : base.ilike('pick_up_location', `%${suburb}%`);
-    });
-
-    // Combine and deduplicate results based on record_id
-    const combinedTransport = [...(transportFiltered || []), ...(transportHellmann || [])];
-    const transport = Array.from(
-      new Map(combinedTransport.map(item => [item.record_id, item])).values()
-    );
 
     console.log('Transport Results:');
     console.log('- Row count:', transport?.length || 0);
