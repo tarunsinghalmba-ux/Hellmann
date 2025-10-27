@@ -637,12 +637,20 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
     const { data: transport } = await selectWithFallback(TABLE_KEYS.transport, (q) => {
       let base = q
-        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,cubic_rate,minimum_rate_cbm,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized,fumigation_bmsb,sideloader_same_day_collection')
+        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,cubic_rate,minimum_rate_cbm,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized,fumigation_bmsb,sideloader_same_day_collection,port_of_discharge')
         .ilike('direction', direction)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
         .gte('valid_until', fromDate)
         .limit(200);
+
+      // Apply port of discharge filter
+      const localPortArray = direction === 'import' ? podArray : polArray;
+      if (localPortArray.length === 1) {
+        base = base.ilike('port_of_discharge', localPortArray[0]);
+      } else if (localPortArray.length > 1) {
+        base = base.or(localPortArray.map(p => `port_of_discharge.ilike.${p}`).join(','));
+      }
 
       if (input.vehicleType) {
         base = base.eq('vehicle_type', input.vehicleType);
@@ -667,7 +675,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     if (transport && transport.length > 0) {
       console.log('Transport Vendor Breakdown:');
       transport.forEach((t: any, idx: number) => {
-        console.log(`  [${idx}] Transport Vendor: "${t.transport_vendor}", Charge: "${t.charge_description}", Location: "${t.delivery_location || t.pick_up_location}", Vehicle: "${t.vehicle_type}", 40HC Rate: ${t['40gp_40hc']}`);
+        console.log(`  [${idx}] POD: "${t.port_of_discharge}", Transport Vendor: "${t.transport_vendor}", Charge: "${t.charge_description}", Location: "${t.delivery_location || t.pick_up_location}", Vehicle: "${t.vehicle_type}", 40HC Rate: ${t['40gp_40hc']}`);
       });
     }
     console.log('=======================');
