@@ -113,22 +113,23 @@ export async function fetchTransportPricing(filters: {
       .lte("effective_date", to)
       .gte("valid_until", from);
 
+    // Apply location filter first
     if (direction === "import") {
-      query = query.eq("delivery_location", point);
+      query = query.ilike("delivery_location", `%${point}%`);
     } else {
-      query = query.eq("pick_up_location", point);
+      query = query.ilike("pick_up_location", `%${point}%`);
     }
 
     if (vehicleType) {
-      query = query.eq("vehicle_type", vehicleType);
+      query = query.ilike("vehicle_type", vehicleType);
     }
 
     if (transportVendor) {
-      query = query.eq("transport_vendor", transportVendor);
+      query = query.ilike("transport_vendor", transportVendor);
     }
 
     if (mode) {
-      query = query.eq("mode", mode);
+      query = query.ilike("mode", mode);
     }
 
     return query.limit(10000);
