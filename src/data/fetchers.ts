@@ -91,15 +91,15 @@ export async function fetchTransportPricing(filters: {
     }
 
     if (vehicleType) {
-      query = query.ilike("vehicle_type", vehicleType);
+      query = query.eq("vehicle_type", vehicleType);
     }
 
     if (transportVendor) {
-      query = query.ilike("transport_vendor", transportVendor);
+      query = query.eq("transport_vendor", transportVendor);
     }
 
     if (mode) {
-      query = query.ilike("mode", mode);
+      query = query.eq("mode", mode);
     }
 
     return query.limit(10000);

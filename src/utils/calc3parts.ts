@@ -645,15 +645,15 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         .limit(200);
 
       if (input.vehicleType) {
-        base = base.ilike('vehicle_type', input.vehicleType);
+        base = base.eq('vehicle_type', input.vehicleType);
       }
 
       if (input.transportVendor) {
-        base = base.ilike('transport_vendor', input.transportVendor);
+        base = base.eq('transport_vendor', input.transportVendor);
       }
 
       if (input.mode) {
-        base = base.ilike('mode', input.mode);
+        base = base.eq('mode', input.mode);
       }
 
       return direction === 'import'
