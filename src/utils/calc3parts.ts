@@ -664,6 +664,12 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.log('Transport Results:');
     console.log('- Row count:', transport?.length || 0);
     console.log('- Raw data:', transport);
+    if (transport && transport.length > 0) {
+      console.log('Transport Vendor Breakdown:');
+      transport.forEach((t: any, idx: number) => {
+        console.log(`  [${idx}] Transport Vendor: "${t.transport_vendor}", Charge: "${t.charge_description}", Location: "${t.delivery_location || t.pick_up_location}", Vehicle: "${t.vehicle_type}", 40HC Rate: ${t['40gp_40hc']}`);
+      });
+    }
     console.log('=======================');
 
     // Process transport charges for each container type with validity date enforcement
