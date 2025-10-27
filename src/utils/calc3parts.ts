@@ -668,9 +668,10 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.log('=== TRANSPORT QUERY ===');
     console.log('SQL:', transportQuery);
 
-    const { data: transport } = await selectWithFallback(TABLE_KEYS.transport, (q) => {
+    // Fetch filtered transport results
+    const { data: transportFiltered } = await selectWithFallback(TABLE_KEYS.transport, (q) => {
       let base = q
-        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,cubic_rate,minimum_rate_cbm,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized,fumigation_bmsb,sideloader_same_day_collection')
+        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,cubic_rate,minimum_rate_cbm,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized,fumigation_bmsb,sideloader_same_day_collection,record_id')
         .ilike('direction', direction)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
@@ -693,6 +694,36 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         ? base.ilike('delivery_location', `%${suburb}%`)
         : base.ilike('pick_up_location', `%${suburb}%`);
     });
+
+    // Always fetch Hellmann Transport results
+    const { data: transportHellmann } = await selectWithFallback(TABLE_KEYS.transport, (q) => {
+      let base = q
+        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,cubic_rate,minimum_rate_cbm,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized,fumigation_bmsb,sideloader_same_day_collection,record_id')
+        .ilike('direction', direction)
+        .eq('currency', 'AUD')
+        .lte('effective_date', toDate)
+        .gte('valid_until', fromDate)
+        .eq('transport_vendor', 'Hellmann Transport')
+        .limit(200);
+
+      if (input.vehicleType) {
+        base = base.ilike('vehicle_type', input.vehicleType);
+      }
+
+      if (input.mode) {
+        base = base.ilike('mode', input.mode);
+      }
+
+      return direction === 'import'
+        ? base.ilike('delivery_location', `%${suburb}%`)
+        : base.ilike('pick_up_location', `%${suburb}%`);
+    });
+
+    // Combine and deduplicate results based on record_id
+    const combinedTransport = [...(transportFiltered || []), ...(transportHellmann || [])];
+    const transport = Array.from(
+      new Map(combinedTransport.map(item => [item.record_id, item])).values()
+    );
 
     console.log('Transport Results:');
     console.log('- Row count:', transport?.length || 0);
