@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Filter, X } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { selectWithFallback, TABLE_KEYS } from '../lib/tableMap';
 import type { FilterParams } from '../types';
 
 interface FiltersPanelProps {
@@ -10,8 +10,6 @@ interface FiltersPanelProps {
 }
 
 export default function FiltersPanel({ filters, onChange, onReset }: FiltersPanelProps) {
-  console.log('🔥🔥🔥 FiltersPanel COMPONENT MOUNTED 🔥🔥🔥');
-
   const [options, setOptions] = useState<{
     directions: string[];
     ports: string[];
@@ -38,10 +36,27 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
     vehicleTypes: [],
   });
 
+  useEffect(() => {
+    loadFilterOptions();
+  }, []);
+
   const loadFilterOptions = async () => {
-    console.log('🚀🚀🚀 NEW VERSION LOADED - DIRECT SUPABASE QUERIES 🚀🚀🚀');
-    
     try {
+      // Load ocean freight data
+      const { data: oceanRates } = await selectWithFallback(TABLE_KEYS.ocean, (q) =>
+        q.select('port_of_loading, port_of_discharge, currency, mode, service_type, transit_time, carrier')
+      );
+      
+      // Load local charges data
+      const { data: localCharges } = await selectWithFallback(TABLE_KEYS.local, (q) =>
+        q.select('port_of_discharge, currency, cw1_charge_code')
+      );
+      
+      // Load transport data
+      const { data: transport } = await selectWithFallback(TABLE_KEYS.transport, (q) =>
+        q.select('pick_up_location, delivery_location, currency, vehicle_type')
+      );
+
       const ports = new Set<string>();
       const locations = new Set<string>();
       const currencies = new Set<string>();
@@ -51,196 +66,34 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
       const carriers = new Set<string>();
       const vehicleTypes = new Set<string>();
 
-      if (!supabase) {
-        console.error('❌ Supabase client not initialized');
-        return;
-      }
-
-      // TEST: First get the total count
-      const { count: totalCount, error: countError } = await supabase
-        .from('ocean_freight')
-        .select('*', { count: 'exact', head: true });
-
-      console.log('📊 Total records in ocean_freight table:', totalCount);
-      if (countError) console.error('❌ Count error:', countError);
-
-      // Helper function with detailed logging
-      const fetchAllRecordsDirect = async (
-        tableName: string,
-        selectFields: string,
-        batchSize = 1000
-      ) => {
-        let allData: any[] = [];
-        let start = 0;
-        let hasMore = true;
-        let batchNumber = 1;
-
-        while (hasMore && batchNumber <= 10) {
-          const end = start + batchSize - 1;
-          console.log(`\n📦 Batch ${batchNumber}: Fetching ${tableName} range [${start}, ${end}]`);
-          
-          const { data, error, count } = await supabase
-            .from(tableName)
-            .select(selectFields, { count: 'exact' })
-            .range(start, end);
-
-          if (error) {
-            console.error(`❌ Error fetching ${tableName}:`, error);
-            console.error('Error details:', JSON.stringify(error, null, 2));
-            break;
-          }
-
-          const fetchedCount = data?.length || 0;
-          console.log(`✅ Batch ${batchNumber} result: ${fetchedCount} records`);
-          console.log(`   Total count from query: ${count}`);
-          console.log(`   Cumulative records: ${allData.length + fetchedCount}`);
-
-          if (data && data.length > 0) {
-            allData = [...allData, ...data];
-            start += batchSize;
-            hasMore = data.length === batchSize;
-            batchNumber++;
-            
-            if (data.length < batchSize) {
-              console.log(`🏁 Last batch detected (${data.length} < ${batchSize})`);
-            }
-          } else {
-            console.log('🛑 No more data to fetch');
-            hasMore = false;
-          }
-        }
-
-        console.log(`\n✅ Total ${tableName} records fetched: ${allData.length}\n`);
-        return allData;
-      };
-
-      // Try ocean_freight first, then fall back to ocean_freight_rates
-      console.log('=== FETCHING OCEAN DATA ===');
-      let oceanData: any[] = [];
-      try {
-        oceanData = await fetchAllRecordsDirect(
-          'ocean_freight',
-          'port_of_loading, port_of_discharge, currency, mode, service_type, carrier'
-        );
-      } catch (e) {
-        console.log('⚠️ ocean_freight failed, trying ocean_freight_rates...');
-        try {
-          oceanData = await fetchAllRecordsDirect(
-            'ocean_freight_rates',
-            'port_of_loading, port_of_discharge, currency, mode, service_type, carrier'
-          );
-        } catch (e2) {
-          console.error('❌ Both ocean tables failed');
-        }
-      }
-
-      console.log(`\n🎯 Processing ${oceanData.length} ocean records...`);
-
-      oceanData.forEach((item: any) => {
-        const trimmedPOL = String(item.port_of_loading || '').trim();
-        const trimmedPOD = String(item.port_of_discharge || '').trim();
-        const trimmedCurrency = String(item.currency || '').trim();
-        const trimmedMode = String(item.mode || '').trim();
-        const trimmedServiceType = String(item.service_type || '').trim();
-        const trimmedCarrier = String(item.carrier || '').trim();
-
-        if (trimmedPOL) ports.add(trimmedPOL);
-        if (trimmedPOD) ports.add(trimmedPOD);
-        if (trimmedCurrency) currencies.add(trimmedCurrency);
-        if (trimmedMode) modes.add(trimmedMode);
-        if (trimmedServiceType) serviceTypes.add(trimmedServiceType);
-        if (trimmedCarrier) carriers.add(trimmedCarrier);
+      // Process ocean freight data
+      oceanRates?.forEach(item => {
+        if (item.port_of_loading && String(item.port_of_loading || '').trim()) ports.add(String(item.port_of_loading || ''));
+        if (item.port_of_discharge && String(item.port_of_discharge || '').trim()) ports.add(String(item.port_of_discharge || ''));
+        if (item.currency && String(item.currency || '').trim()) currencies.add(String(item.currency || ''));
+        if (item.mode && String(item.mode || '').trim()) modes.add(String(item.mode || ''));
+        if (item.service_type && String(item.service_type || '').trim()) serviceTypes.add(String(item.service_type || ''));
+        if (item.carrier && String(item.carrier || '').trim()) carriers.add(String(item.carrier || ''));
       });
 
-      console.log(`Unique ports after ocean: ${ports.size}`);
-
-      // Fetch local charges
-      console.log('\n=== FETCHING LOCAL CHARGES ===');
-      let localData: any[] = [];
-      try {
-        localData = await fetchAllRecordsDirect(
-          'local',
-          'port_of_discharge, currency, cw1_charge_code'
-        );
-      } catch (e) {
-        console.log('⚠️ local failed, trying local_charges...');
-        try {
-          localData = await fetchAllRecordsDirect(
-            'local_charges',
-            'port_of_discharge, currency, cw1_charge_code'
-          );
-        } catch (e2) {
-          console.error('❌ Both local tables failed');
-        }
-      }
-
-      console.log(`\n🎯 Processing ${localData.length} local charge records...`);
-
-      localData.forEach((item: any) => {
-        const trimmedPOD = String(item.port_of_discharge || '').trim();
-        const trimmedCurrency = String(item.currency || '').trim();
-        const trimmedChargeCode = String(item.cw1_charge_code || '').trim();
-
-        if (trimmedPOD) ports.add(trimmedPOD);
-        if (trimmedCurrency) currencies.add(trimmedCurrency);
-        if (trimmedChargeCode) chargeCodes.add(trimmedChargeCode);
+      // Process local charges data
+      localCharges?.forEach(item => {
+        if (item.port_of_discharge && String(item.port_of_discharge || '').trim()) ports.add(String(item.port_of_discharge || ''));
+        if (item.currency && String(item.currency || '').trim()) currencies.add(String(item.currency || ''));
+        if (item.cw1_charge_code && String(item.cw1_charge_code || '').trim()) chargeCodes.add(String(item.cw1_charge_code || ''));
       });
 
-      console.log(`Unique ports after local charges: ${ports.size}`);
-
-      // Fetch transport data
-      console.log('\n=== FETCHING TRANSPORT DATA ===');
-      let transportData: any[] = [];
-      try {
-        transportData = await fetchAllRecordsDirect(
-          'transport',
-          'pick_up_location, delivery_location, currency, vehicle_type'
-        );
-      } catch (e) {
-        console.log('⚠️ transport failed, trying transport_pricing...');
-        try {
-          transportData = await fetchAllRecordsDirect(
-            'transport_pricing',
-            'pick_up_location, delivery_location, currency, vehicle_type'
-          );
-        } catch (e2) {
-          console.error('❌ Both transport tables failed');
-        }
-      }
-
-      console.log(`\n🎯 Processing ${transportData.length} transport records...`);
-
-      transportData.forEach((item: any) => {
-        const trimmedPickup = String(item.pick_up_location || '').trim();
-        const trimmedDelivery = String(item.delivery_location || '').trim();
-        const trimmedCurrency = String(item.currency || '').trim();
-        const trimmedVehicleType = String(item.vehicle_type || '').trim();
-
-        if (trimmedPickup) locations.add(trimmedPickup);
-        if (trimmedDelivery) locations.add(trimmedDelivery);
-        if (trimmedCurrency) currencies.add(trimmedCurrency);
-        if (trimmedVehicleType) vehicleTypes.add(trimmedVehicleType);
+      // Process transport data
+      transport?.forEach(item => {
+        if (item.pick_up_location && String(item.pick_up_location || '').trim()) locations.add(String(item.pick_up_location || ''));
+        if (item.delivery_location && String(item.delivery_location || '').trim()) locations.add(String(item.delivery_location || ''));
+        if (item.currency && String(item.currency || '').trim()) currencies.add(String(item.currency || ''));
+        if (item.vehicle_type && String(item.vehicle_type || '').trim()) vehicleTypes.add(String(item.vehicle_type || ''));
       });
 
-      const portsList = Array.from(ports).sort();
-
-      console.log('\n' + '='.repeat(50));
-      console.log('🎉 FINAL RESULTS');
-      console.log('='.repeat(50));
-      console.log(`📊 Total ocean records: ${oceanData.length} (expected ~6228)`);
-      console.log(`📊 Total local records: ${localData.length}`);
-      console.log(`📊 Total transport records: ${transportData.length}`);
-      console.log(`🚢 Total unique ports: ${portsList.length} (expected 399)`);
-      console.log(`🚂 Total modes: ${modes.size}`);
-      console.log(`🚚 Total carriers: ${carriers.size}`);
-      console.log(`📍 Total locations: ${locations.size}`);
-      console.log(`\n📋 First 10 ports:`, portsList.slice(0, 10));
-      console.log(`📋 Last 10 ports:`, portsList.slice(-10));
-      console.log('='.repeat(50) + '\n');
-
-      const newOptions = {
+      setOptions({
         directions: ['import', 'export'],
-        ports: portsList,
+        ports: Array.from(ports).sort(),
         locations: Array.from(locations).sort(),
         containerTypes: ['20GP', '40GP', '40HC', 'LCL'],
         currencies: Array.from(currencies).sort(),
@@ -250,19 +103,11 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
         serviceTypes: Array.from(serviceTypes).sort(),
         carriers: Array.from(carriers).sort(),
         vehicleTypes: Array.from(vehicleTypes).sort(),
-      };
-
-      console.log(`✅ Setting options with ${newOptions.ports.length} ports`);
-      setOptions(newOptions);
-      console.log('✅ Options state updated successfully!');
+      });
     } catch (error) {
-      console.error('❌ Error loading filter options:', error);
+      console.error('Error loading filter options:', error);
     }
   };
-
-  useEffect(() => {
-    loadFilterOptions();
-  }, []);
 
   const handleFilterChange = (key: keyof FilterParams, value: string) => {
     onChange({ ...filters, [key]: value || undefined });
@@ -329,9 +174,7 @@ export default function FiltersPanel({ filters, onChange, onReset }: FiltersPane
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Port of Loading ({options.ports.length} ports)
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Port of Loading</label>
           <select
             value={filters.pol || ''}
             onChange={(e) => handleFilterChange('pol', e.target.value)}

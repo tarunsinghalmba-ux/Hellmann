@@ -75,7 +75,6 @@ export interface CalculationInputs {
   unpackPalletized?: boolean;
   fumigationSurcharge?: boolean;
   sideloaderSamedayCollection?: boolean;
-  showIfApplicable?: boolean;
 }
 
 export interface LineItem {
