@@ -31,6 +31,7 @@ export interface CalcInput {
   serviceType?: string; // service type filter
   sideloaderSamedayCollection?: boolean; // sideloader sameday collection filter
   unpackLoose?: boolean; // unpack loose filter
+  showIfApplicable?: boolean; // show if applicable local charges
 }
 
 export interface LineItem {

@@ -249,7 +249,8 @@ export default function Home() {
         sideLoaderAccessFees: inputs.sideLoaderAccessFees,
         unpackLoose: inputs.unpackLoose,
         unpackPalletized: inputs.unpackPalletized,
-        sideloaderSamedayCollection: inputs.sideloaderSamedayCollection
+        sideloaderSamedayCollection: inputs.sideloaderSamedayCollection,
+        showIfApplicable: inputs.showIfApplicable
       };
       
       const calculationResults = await calculateThreeParts(calcInput, setSqlQueries);
