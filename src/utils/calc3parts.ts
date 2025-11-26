@@ -676,9 +676,10 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     if (transport && transport.length > 0) {
       console.log('Transport Vendor Breakdown:');
       transport.forEach((t: any, idx: number) => {
-        console.log(`  [${idx}] POD: "${t.port_of_discharge}", Transport Vendor: "${t.transport_vendor}", Charge: "${t.charge_description}", Location: "${t.delivery_location || t.pick_up_location}", Vehicle: "${t.vehicle_type}", 40HC Rate: ${t['40gp_40hc']}`);
+        console.log(`  [${idx}] POD: "${t.port_of_discharge}", Transport Vendor: "${t.transport_vendor}", Charge: "${t.charge_description}", Location: "${t.delivery_location || t.pick_up_location}", Vehicle: "${t.vehicle_type}", 20GP Rate: ${t['20gp']}, 40HC Rate: ${t['40gp_40hc']}`);
       });
     }
+    console.log('Container Quantities:', { qty20, qty40, qty40HC, qty20RE, qty40RH, lclCbm });
     console.log('=======================');
 
     // Process transport charges for each container type with validity date enforcement
@@ -737,6 +738,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       if (qty20 > 0) {
         const baseRate = parseFloat(r['20gp']) || 0;
         const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge + fumigationCharge + sideloaderSamedayCharge;
+        console.log(`Transport 20GP: baseRate=${baseRate}, rate=${rate}, qty20=${qty20}`);
         if (rate > 0) {
           const total = rate * qty20;
           const additionalCharges = [];
@@ -793,6 +795,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       if (qty40HC > 0) {
         const baseRate = parseFloat(r['40gp_40hc']) || 0;
         const rate = baseRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge + fumigationCharge + sideloaderSamedayCharge;
+        console.log(`Transport 40HC: baseRate=${baseRate}, rate=${rate}, qty40HC=${qty40HC}`);
         if (rate > 0) {
           const total = rate * qty40HC;
           const additionalCharges = [];
