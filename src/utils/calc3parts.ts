@@ -108,7 +108,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const carrierFilter = input.carrier ? ` AND UPPER("carrier") = UPPER('${input.carrier}')` : '';
     const transitTimeFilter = (input.transitTime && parseInt(input.transitTime) > 0) ? ` AND "transit_time" = ${parseInt(input.transitTime)}` : '';
     const serviceTypeFilter = input.serviceType ? ` AND UPPER("service_type") = UPPER('${input.serviceType}')` : '';
-    const dangerousGoodsFilter = input.dangerousGoods === true ? ` AND "dg" = 'Yes'` : input.dangerousGoods === false ? ` AND ("dg" = 'No' OR "dg" IS NULL)` : '';
+    const dangerousGoodsFilter = input.dangerousGoods === true ? ` AND "dg" = 'Yes'` : input.dangerousGoods === false ? ` AND ("dg" = 'No' OR "dg" IS NULL OR "dg" = '')` : '';
     const polFilter = polArray.length > 1
       ? `UPPER("port_of_loading") IN (${polArray.map(p => `UPPER('${p}')`).join(',')})`
       : `UPPER("port_of_loading") = UPPER('${polArray[0]}')`;
@@ -150,7 +150,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       if (input.dangerousGoods === true) {
         query = query.eq('dg', 'Yes');
       } else if (input.dangerousGoods === false) {
-        query = query.or('dg.eq.No,dg.is.null');
+        query = query.or('dg.eq.No,dg.is.null,dg.eq.');
       }
       
       return query;
