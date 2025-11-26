@@ -645,16 +645,6 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         .gte('valid_until', fromDate)
         .limit(200);
 
-      // Apply port of discharge filter only if transport records are port-specific
-      // Note: Some transport records may not have port_of_discharge and should still match
-      const localPortArray = direction === 'import' ? podArray : polArray;
-      if (localPortArray.length === 1) {
-        base = base.or(`port_of_discharge.ilike.${localPortArray[0]},port_of_discharge.is.null`);
-      } else if (localPortArray.length > 1) {
-        const portFilters = localPortArray.map(p => `port_of_discharge.ilike.${p}`).join(',');
-        base = base.or(`${portFilters},port_of_discharge.is.null`);
-      }
-
       if (input.vehicleType) {
         base = base.eq('vehicle_type', input.vehicleType);
       }
