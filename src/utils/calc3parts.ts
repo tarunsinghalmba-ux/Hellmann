@@ -632,8 +632,11 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const transportModeFilter = input.mode ? ` AND UPPER("mode") = UPPER('${input.mode}')` : '';
 
     const locationField = direction === 'import' ? 'delivery_location' : 'pick_up_location';
-    const locationConditions = suburbArray.map(s => `UPPER("${locationField}") LIKE UPPER('%${s}%')`).join(' OR ');
-    const locationFilter = suburbArray.length > 0 ? ` AND (${locationConditions})` : '';
+    const locationFilter = suburbArray.length > 1
+      ? ` AND UPPER("${locationField}") IN (${suburbArray.map(s => `UPPER('${s}')`).join(',')})`
+      : suburbArray.length === 1
+      ? ` AND UPPER("${locationField}") = UPPER('${suburbArray[0]}')`
+      : '';
 
     const transportQuery = `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","cubic_rate","minimum_rate_cbm","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}')${locationFilter} AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter}${transportModeFilter} LIMIT 200`;
     queries.push(transportQuery);
@@ -664,15 +667,12 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
       if (suburbArray.length === 1) {
         return direction === 'import'
-          ? base.ilike('delivery_location', `%${suburbArray[0]}%`)
-          : base.ilike('pick_up_location', `%${suburbArray[0]}%`);
+          ? base.eq('delivery_location', suburbArray[0])
+          : base.eq('pick_up_location', suburbArray[0]);
       } else if (suburbArray.length > 1) {
-        const locationFilters = suburbArray.map(s =>
-          direction === 'import'
-            ? `delivery_location.ilike.%${s}%`
-            : `pick_up_location.ilike.%${s}%`
-        ).join(',');
-        return base.or(locationFilters);
+        return direction === 'import'
+          ? base.in('delivery_location', suburbArray)
+          : base.in('pick_up_location', suburbArray);
       }
 
       return base;
