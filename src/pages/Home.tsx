@@ -25,7 +25,7 @@ const initialInputs: CalculationInputs = {
   qty20RE: 0,
   qty40RH: 0,
   lclCbm: 0,
-  sortBy: 'recommended',
+  sortBy: undefined,
   dangerousGoods: false,
   dropTrailer: false,
   heavyWeightSurcharge: false,

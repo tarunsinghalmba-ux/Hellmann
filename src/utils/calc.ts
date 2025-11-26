@@ -84,10 +84,15 @@ export async function calculateRates(inputs: CalculationInputs): Promise<Calcula
   // Calculate Local Charges
   const localCharges = await fetchLocalCharges(inputs);
   for (const charge of localCharges) {
+    // Skip "If Applicable" charges if the checkbox is not checked
+    if ((charge as any).mandatory_or_if_applicable === 'If Applicable' && !inputs.showIfApplicable) {
+      continue;
+    }
+
     if (!results.has(charge.currency)) {
       results.set(charge.currency, initCurrency(charge.currency));
     }
-    
+
     const result = results.get(charge.currency)!;
     let quantity = 1;
     let total = 0;
@@ -158,7 +163,10 @@ async function fetchOceanFreight(inputs: CalculationInputs): Promise<OceanFreigh
       pod: inputs.pod,
       direction: inputs.direction,
       from: inputs.validityFrom,
-      to: inputs.validityTo
+      to: inputs.validityTo,
+      carrier: inputs.carrier,
+      serviceType: inputs.serviceType,
+      mode: inputs.mode
     });
     return data;
   } catch (error: any) {
@@ -174,7 +182,10 @@ async function fetchTransport(inputs: CalculationInputs): Promise<TransportPrici
       point: inputs.point,
       direction: inputs.direction,
       from: inputs.validityFrom,
-      to: inputs.validityTo
+      to: inputs.validityTo,
+      vehicleType: inputs.vehicleType,
+      transportVendor: inputs.transportVendor,
+      mode: inputs.mode
     });
     return data;
   } catch (error: any) {
@@ -191,7 +202,9 @@ async function fetchLocalCharges(inputs: CalculationInputs): Promise<LocalCharge
       port,
       direction: inputs.direction,
       from: inputs.validityFrom,
-      to: inputs.validityTo
+      to: inputs.validityTo,
+      mode: inputs.mode,
+      serviceProvider: inputs.carrier // Using carrier as service provider filter
     });
     return data;
   } catch (error: any) {

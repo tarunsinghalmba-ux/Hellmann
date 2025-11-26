@@ -1,5 +1,5 @@
-import React from 'react';
-import { Calculator, DollarSign, Calendar } from 'lucide-react';
+import React, { useState } from 'react';
+import { Calculator, DollarSign, Calendar, ArrowUpDown } from 'lucide-react';
 import type { CalcResult } from '../utils/calc3parts';
 
 const Money: React.FC<{ value: number; currency: string }> = ({ value, currency }) => (
@@ -68,6 +68,8 @@ const SummaryPanel: React.FC<{ data: CalcResult }> = ({ data }) => {
   );
 };
 export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string[] }> = ({ data, emptyHints = [] }) => {
+  const [oceanSortBy, setOceanSortBy] = useState<'cheapest' | 'fastest' | 'recommended'>('recommended');
+
   // Check if we have any results to show
   const hasResults = data.oceanUSD.items.length > 0 || data.localsAUD.items.length > 0 || data.deliveryAUD.items.length > 0;
 
@@ -87,6 +89,32 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
     );
   }
 
+  const sortOceanItems = (items: typeof data.oceanUSD.items) => {
+    const sorted = [...items];
+    if (oceanSortBy === 'cheapest') {
+      sorted.sort((a, b) => a.rate - b.rate);
+    } else if (oceanSortBy === 'fastest') {
+      sorted.sort((a, b) => (a.transitTime || 999) - (b.transitTime || 999));
+    } else if (oceanSortBy === 'recommended') {
+      sorted.sort((a, b) => {
+        const hasPreferredA = a.preferredVendor && a.preferredVendor.trim() !== '';
+        const hasPreferredB = b.preferredVendor && b.preferredVendor.trim() !== '';
+
+        if (hasPreferredA && !hasPreferredB) return -1;
+        if (!hasPreferredA && hasPreferredB) return 1;
+
+        const normalizedRateA = a.rate / 5000;
+        const normalizedRateB = b.rate / 5000;
+        const normalizedTransitA = (a.transitTime || 30) / 45;
+        const normalizedTransitB = (b.transitTime || 30) / 45;
+        const scoreA = (normalizedRateA * 0.6) + (normalizedTransitA * 0.4);
+        const scoreB = (normalizedRateB * 0.6) + (normalizedTransitB * 0.4);
+        return scoreA - scoreB;
+      });
+    }
+    return sorted;
+  };
+
   const cards: Array<{ key: keyof CalcResult; accent: string }> = [
     { key: 'oceanUSD', accent: 'border-blue-500' },
     { key: 'localsAUD', accent: 'border-emerald-500' },
@@ -105,6 +133,9 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
           return null;
         }
 
+        const isOceanFreight = key === 'oceanUSD';
+        const displayItems = isOceanFreight ? sortOceanItems(s.items) : s.items;
+
         return (
           <div key={key} className={`rounded-2xl border-2 p-6 shadow-sm bg-white ${accent}`}>
             <div className="flex items-center justify-between mb-4">
@@ -118,6 +149,46 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
                 </div>
               </div>
             </div>
+
+            {isOceanFreight && s.items.length > 1 && (
+              <div className="mb-4 flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <ArrowUpDown className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-gray-700">Sort by:</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setOceanSortBy('recommended')}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                      oceanSortBy === 'recommended'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    Recommended
+                  </button>
+                  <button
+                    onClick={() => setOceanSortBy('cheapest')}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                      oceanSortBy === 'cheapest'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    Cheapest
+                  </button>
+                  <button
+                    onClick={() => setOceanSortBy('fastest')}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                      oceanSortBy === 'fastest'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    Fastest
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead className="text-left text-gray-500 border-b border-gray-200">
@@ -130,7 +201,7 @@ export const ResultsThreeParts: React.FC<{ data: CalcResult; emptyHints?: string
                   </tr>
                 </thead>
                 <tbody>
-                  {s.items.map((i, idx) => (
+                  {displayItems.map((i, idx) => (
                     <tr key={idx} className="border-b border-gray-100">
                       <td className="py-2 pr-4">
                         {i.label}
