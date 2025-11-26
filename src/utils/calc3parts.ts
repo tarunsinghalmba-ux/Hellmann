@@ -664,13 +664,13 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
       if (suburbArray.length === 1) {
         return direction === 'import'
-          ? base.ilike('delivery_location', `%${suburbArray[0]}%`)
-          : base.ilike('pick_up_location', `%${suburbArray[0]}%`);
+          ? base.eq('delivery_location', suburbArray[0])
+          : base.eq('pick_up_location', suburbArray[0]);
       } else if (suburbArray.length > 1) {
         const locationFilters = suburbArray.map(s =>
           direction === 'import'
-            ? `delivery_location.ilike.%${s}%`
-            : `pick_up_location.ilike.%${s}%`
+            ? `delivery_location.eq.${s}`
+            : `pick_up_location.eq.${s}`
         ).join(',');
         return base.or(locationFilters);
       }
