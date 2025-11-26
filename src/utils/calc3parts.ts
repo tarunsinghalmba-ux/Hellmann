@@ -632,7 +632,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const transportModeFilter = input.mode ? ` AND UPPER("mode") = UPPER('${input.mode}')` : '';
 
     const locationField = direction === 'import' ? 'delivery_location' : 'pick_up_location';
-    const locationConditions = suburbArray.map(s => `UPPER("${locationField}") = UPPER('${s}')`).join(' OR ');
+    const locationConditions = suburbArray.map(s => `UPPER("${locationField}") LIKE UPPER('%${s}%')`).join(' OR ');
     const locationFilter = suburbArray.length > 0 ? ` AND (${locationConditions})` : '';
 
     const transportQuery = `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","cubic_rate","minimum_rate_cbm","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}')${locationFilter} AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter}${transportModeFilter} LIMIT 200`;
