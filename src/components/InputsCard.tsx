@@ -370,10 +370,12 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
   const isValidForm = () => {
     const hasValidPol = Array.isArray(inputs.pol) ? inputs.pol.length > 0 : inputs.pol !== '';
     const hasValidPod = Array.isArray(inputs.pod) ? inputs.pod.length > 0 : inputs.pod !== '';
+    const hasValidPoint = Array.isArray(inputs.point) ? inputs.point.length > 0 : inputs.point !== '';
     return (
       inputs.direction &&
       hasValidPol &&
       hasValidPod &&
+      hasValidPoint &&
       inputs.validityFrom &&
       inputs.validityTo &&
       inputs.validityFrom <= inputs.validityTo &&
@@ -386,7 +388,7 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
       direction: 'export',
       pol: [],
       pod: [],
-      point: '',
+      point: [],
       validityFrom: new Date().toISOString().split('T')[0],
       validityTo: (() => {
         const now = new Date();
@@ -437,11 +439,11 @@ export default function InputsCard({ inputs, onChange, onCalculate, loading }: I
           <label className="block text-sm font-medium text-gray-700 mb-1">
             {inputs.direction === 'import' ? 'Delivery Point' : 'Pickup Point'} *
           </label>
-          <SuggestiveSelect
-            value={inputs.point}
-            onChange={(value) => handleChange('point', value)}
+          <MultiSelect
+            values={Array.isArray(inputs.point) ? inputs.point : inputs.point ? [inputs.point] : []}
+            onChange={(values) => handleChange('point', values)}
             options={locationOptions}
-            placeholder={`Enter ${inputs.direction === 'import' ? 'delivery' : 'pickup'} location`}
+            placeholder={`Select ${inputs.direction === 'import' ? 'delivery' : 'pickup'} locations`}
             loading={loadingLocations}
           />
         </div>

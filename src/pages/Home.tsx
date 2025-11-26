@@ -12,7 +12,7 @@ const initialInputs: CalculationInputs = {
   direction: 'export',
   pol: [],
   pod: [],
-  point: '',
+  point: [],
   validityFrom: new Date().toISOString().split('T')[0],
   validityTo: (() => {
     const now = new Date();

@@ -50,7 +50,7 @@ export interface CalculationInputs {
   direction: 'import' | 'export';
   pol: string | string[]; // Port of Loading (supports multi-select)
   pod: string | string[]; // Port of Discharge (supports multi-select)
-  point: string; // Delivery/Pickup point
+  point: string | string[]; // Delivery/Pickup point (supports multi-select)
   validityFrom: string;
   validityTo: string;
   qty20: number;

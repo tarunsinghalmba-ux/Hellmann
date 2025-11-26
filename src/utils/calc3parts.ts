@@ -6,7 +6,7 @@ export interface CalcInput {
   direction: Direction;
   pol: string | string[]; // Port of Loading (supports multi-select)
   pod: string | string[]; // Port of Discharge (supports multi-select)
-  suburb: string; // Delivery point for import, Pickup point for export
+  suburb: string | string[]; // Delivery point for import, Pickup point for export (supports multi-select)
   fromDate: string; // YYYY-MM-DD
   toDate: string;   // YYYY-MM-DD
   qty20: number;        // 20GP container quantity
@@ -85,14 +85,16 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
   const queries: string[] = [];
   const polArray = Array.isArray(pol) ? pol : [pol];
   const podArray = Array.isArray(pod) ? pod : [pod];
+  const suburbArray = Array.isArray(suburb) ? suburb : [suburb];
   const polDisplay = polArray.join(', ');
   const podDisplay = podArray.join(', ');
+  const suburbDisplay = suburbArray.join(', ');
 
   console.log('=== CALCULATION INPUT ===');
   console.log('Direction:', direction);
   console.log('POL:', polDisplay);
   console.log('POD:', podDisplay);
-  console.log('Suburb:', suburb);
+  console.log('Suburb:', suburbDisplay);
   console.log('Date Range:', fromDate, 'to', toDate);
   console.log('20GP Quantity:', qty20);
   console.log('40GP Quantity:', qty40);
@@ -628,9 +630,12 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const vehicleTypeFilter = input.vehicleType ? ` AND UPPER("vehicle_type") = UPPER('${input.vehicleType}')` : '';
     const transportVendorFilter = input.transportVendor ? ` AND UPPER("transport_vendor") = UPPER('${input.transportVendor}')` : '';
     const transportModeFilter = input.mode ? ` AND UPPER("mode") = UPPER('${input.mode}')` : '';
-    const transportQuery = direction === 'import'
-      ? `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","cubic_rate","minimum_rate_cbm","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("delivery_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter}${transportModeFilter} LIMIT 200`
-      : `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","cubic_rate","minimum_rate_cbm","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("pick_up_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter}${transportModeFilter} LIMIT 200`;
+
+    const locationField = direction === 'import' ? 'delivery_location' : 'pick_up_location';
+    const locationConditions = suburbArray.map(s => `UPPER("${locationField}") LIKE UPPER('%${s}%')`).join(' OR ');
+    const locationFilter = suburbArray.length > 0 ? ` AND (${locationConditions})` : '';
+
+    const transportQuery = `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","cubic_rate","minimum_rate_cbm","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}')${locationFilter} AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter}${transportModeFilter} LIMIT 200`;
     queries.push(transportQuery);
 
     console.log('=== TRANSPORT QUERY ===');
@@ -657,9 +662,20 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         base = base.eq('mode', input.mode);
       }
 
-      return direction === 'import'
-        ? base.ilike('delivery_location', `%${suburb}%`)
-        : base.ilike('pick_up_location', `%${suburb}%`);
+      if (suburbArray.length === 1) {
+        return direction === 'import'
+          ? base.ilike('delivery_location', `%${suburbArray[0]}%`)
+          : base.ilike('pick_up_location', `%${suburbArray[0]}%`);
+      } else if (suburbArray.length > 1) {
+        const locationFilters = suburbArray.map(s =>
+          direction === 'import'
+            ? `delivery_location.ilike.%${s}%`
+            : `pick_up_location.ilike.%${s}%`
+        ).join(',');
+        return base.or(locationFilters);
+      }
+
+      return base;
     });
 
     console.log('Transport Results:');
