@@ -128,26 +128,26 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       let query = q.select('port_of_loading,port_of_discharge,direction,20gp,40gp_40hc,20re,40rh,cubic_rate,currency,mode,carrier,transit_time,service_type,preferred_vendor')
         .in('port_of_loading', polArray)
         .in('port_of_discharge', podArray)
-        .eq('direction', direction)
+        .ilike('direction', direction)
         .eq('currency', 'USD')
         .lte('effective_date', toDate)
         .gte('valid_until', fromDate)
         .limit(200);
 
       if (input.mode) {
-        query = query.eq('mode', input.mode);
+        query = query.ilike('mode', input.mode);
       }
-
+      
       if (input.carrier) {
-        query = query.eq('carrier', input.carrier);
+        query = query.ilike('carrier', input.carrier);
       }
-
+      
       if (input.transitTime && parseInt(input.transitTime) > 0) {
         query = query.eq('transit_time', parseInt(input.transitTime));
       }
-
+      
       if (input.serviceType) {
-        query = query.eq('service_type', input.serviceType);
+        query = query.ilike('service_type', input.serviceType);
       }
       
       if (input.dangerousGoods === true) {
@@ -436,23 +436,28 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
     const { data: locals } = await selectWithFallback(TABLE_KEYS.local, (q) => {
       let base = q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,cubic_rate,minimum_rate_cbm,mandatory_or_if_applicable,currency,service_provider,mode')
-        .eq('direction', direction)
+        .ilike('direction', direction)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
         .gte('valid_until', fromDate)
         .limit(500);
 
-      // Apply exact port filtering
-      base = base.in('port_of_discharge', localPortArray);
+      // Apply case-insensitive port filtering
+      if (localPortArray.length === 1) {
+        base = base.ilike('port_of_discharge', localPortArray[0]);
+      } else {
+        // For multiple ports, use OR with ilike for each port
+        base = base.or(localPortArray.map(p => `port_of_discharge.ilike.${p}`).join(','));
+      }
 
       // Apply mode filter if specified
       if (input.mode) {
-        base = base.eq('mode', input.mode);
+        base = base.ilike('mode', input.mode);
       }
 
       // Apply service provider (carrier) filter if specified
       if (input.carrier) {
-        base = base.eq('service_provider', input.carrier);
+        base = base.ilike('service_provider', input.carrier);
       }
 
       return base;
@@ -639,7 +644,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const { data: transport } = await selectWithFallback(TABLE_KEYS.transport, (q) => {
       let base = q
         .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,cubic_rate,minimum_rate_cbm,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized,fumigation_bmsb,sideloader_same_day_collection,port_of_discharge,effective_date,valid_until')
-        .eq('direction', direction)
+        .ilike('direction', direction)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
         .gte('valid_until', fromDate)
