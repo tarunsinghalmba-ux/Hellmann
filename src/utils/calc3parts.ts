@@ -110,12 +110,12 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const serviceTypeFilter = input.serviceType ? ` AND UPPER("service_type") = UPPER('${input.serviceType}')` : '';
     const dangerousGoodsFilter = input.dangerousGoods === true ? ` AND "dg" = 'Yes'` : input.dangerousGoods === false ? ` AND "dg" = 'No'` : '';
     const polFilter = polArray.length > 1
-      ? ` AND UPPER("port_of_loading") IN (${polArray.map(p => `UPPER('${p}')`).join(',')})`
-      : ` AND UPPER("port_of_loading") = UPPER('${polArray[0]}')`;
-    const podFilter = podArray.length > 1
-      ? ` AND UPPER("port_of_discharge") IN (${podArray.map(p => `UPPER('${p}')`).join(',')})`
-      : ` AND UPPER("port_of_discharge") = UPPER('${podArray[0]}')`;
-    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","20re","40rh","cubic_rate","currency","mode","carrier","transit_time","service_type","dg","preferred_vendor","effective_date","valid_until" FROM "ocean_freight" WHERE ${polFilter}${podFilter} AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter} LIMIT 200`;
+      ? `UPPER("port_of_loading") IN (${polArray.map(p => `UPPER('${p}')`).join(',')})`
+      : `UPPER("port_of_loading") = UPPER('${polArray[0]}')`;
+    const podFilter = polArray.length > 1
+      ? `UPPER("port_of_discharge") IN (${podArray.map(p => `UPPER('${p}')`).join(',')})`
+      : `UPPER("port_of_discharge") = UPPER('${podArray[0]}')`;
+    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","20re","40rh","cubic_rate","currency","mode","carrier","transit_time","service_type","dg","preferred_vendor","effective_date","valid_until" FROM "ocean_freight" WHERE ${polFilter} AND ${podFilter} AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter} LIMIT 200`;
     queries.push(oceanQuery);
 
     console.log('=== OCEAN FREIGHT QUERY ===');
@@ -422,10 +422,10 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
   try {
     const localPortArray = direction === 'import' ? podArray : polArray;
     const localPortFilter = localPortArray.length > 1
-      ? ` AND UPPER("port_of_discharge") IN (${localPortArray.map(p => `UPPER('${p}')`).join(',')})`
-      : ` AND UPPER("port_of_discharge") = UPPER('${localPortArray[0]}')`;
+      ? `UPPER("port_of_discharge") IN (${localPortArray.map(p => `UPPER('${p}')`).join(',')})`
+      : `UPPER("port_of_discharge") = UPPER('${localPortArray[0]}')`;
     const localModeFilter = input.mode ? ` AND UPPER("mode") = UPPER('${input.mode}')` : '';
-    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","cubic_rate","minimum_rate_cbm","mandatory_or_if_applicable","currency","effective_date","valid_until" FROM "local" WHERE UPPER("direction") = UPPER('${direction}')${localPortFilter} AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${localModeFilter} LIMIT 500`;
+    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","cubic_rate","minimum_rate_cbm","mandatory_or_if_applicable","currency","effective_date","valid_until" FROM "local" WHERE UPPER("direction") = UPPER('${direction}') AND ${localPortFilter} AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${localModeFilter} LIMIT 500`;
     queries.push(localsQuery);
 
     console.log('=== LOCAL CHARGES QUERY ===');
