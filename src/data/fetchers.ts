@@ -85,9 +85,9 @@ export async function fetchTransportPricing(filters: {
 
     // Apply location filter
     if (direction === "import") {
-      query = query.eq("delivery_location", point);
+      query = query.ilike("delivery_location", `%${point}%`);
     } else {
-      query = query.eq("pick_up_location", point);
+      query = query.ilike("pick_up_location", `%${point}%`);
     }
 
     if (vehicleType) {
