@@ -638,19 +638,21 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
     const { data: transport } = await selectWithFallback(TABLE_KEYS.transport, (q) => {
       let base = q
-        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,cubic_rate,minimum_rate_cbm,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized,fumigation_bmsb,sideloader_same_day_collection,port_of_discharge')
+        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,cubic_rate,minimum_rate_cbm,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized,fumigation_bmsb,sideloader_same_day_collection,port_of_discharge,effective_date,valid_until')
         .ilike('direction', direction)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
         .gte('valid_until', fromDate)
         .limit(200);
 
-      // Apply port of discharge filter
+      // Apply port of discharge filter only if transport records are port-specific
+      // Note: Some transport records may not have port_of_discharge and should still match
       const localPortArray = direction === 'import' ? podArray : polArray;
       if (localPortArray.length === 1) {
-        base = base.ilike('port_of_discharge', localPortArray[0]);
+        base = base.or(`port_of_discharge.ilike.${localPortArray[0]},port_of_discharge.is.null`);
       } else if (localPortArray.length > 1) {
-        base = base.or(localPortArray.map(p => `port_of_discharge.ilike.${p}`).join(','));
+        const portFilters = localPortArray.map(p => `port_of_discharge.ilike.${p}`).join(',');
+        base = base.or(`${portFilters},port_of_discharge.is.null`);
       }
 
       if (input.vehicleType) {
