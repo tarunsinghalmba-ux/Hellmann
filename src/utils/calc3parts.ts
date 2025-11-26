@@ -33,13 +33,15 @@ export interface CalcInput {
   unpackLoose?: boolean; // unpack loose filter
 }
 
-export interface LineItem { 
-  label: string; 
-  unit?: string; 
-  qty: number; 
-  rate: number; 
-  total: number; 
-  extra?: string; 
+export interface LineItem {
+  label: string;
+  unit?: string;
+  qty: number;
+  rate: number;
+  total: number;
+  extra?: string;
+  transitTime?: number;
+  preferredVendor?: string;
 }
 
 export interface Section { 
@@ -113,15 +115,14 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const podFilter = podArray.length > 1
       ? ` AND UPPER("port_of_discharge") IN (${podArray.map(p => `UPPER('${p}')`).join(',')})`
       : ` AND UPPER("port_of_discharge") = UPPER('${podArray[0]}')`;
-    const preferredVendorFilter = input.sortBy === 'recommended' ? ` AND "preferred_vendor" IS NOT NULL AND "preferred_vendor" != ''` : '';
-    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","20re","40rh","currency","mode","carrier","transit_time","service_type","dg","preferred_vendor","effective_date","valid_until" FROM "ocean_freight" WHERE ${polFilter}${podFilter} AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter}${preferredVendorFilter} LIMIT 200`;
+    const oceanQuery = `SELECT "port_of_loading","port_of_discharge","direction","20gp","40gp_40hc","20re","40rh","cubic_rate","currency","mode","carrier","transit_time","service_type","dg","preferred_vendor","effective_date","valid_until" FROM "ocean_freight" WHERE ${polFilter}${podFilter} AND UPPER("direction") = UPPER('${direction}') AND UPPER("currency") = UPPER('USD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${modeFilter}${carrierFilter}${transitTimeFilter}${serviceTypeFilter}${dangerousGoodsFilter} LIMIT 200`;
     queries.push(oceanQuery);
 
     console.log('=== OCEAN FREIGHT QUERY ===');
     console.log('SQL:', oceanQuery);
 
     const { data: ocean } = await selectWithFallback(TABLE_KEYS.ocean, (q) => {
-      let query = q.select('port_of_loading,port_of_discharge,direction,20gp,40gp_40hc,20re,40rh,currency,mode,carrier,transit_time,service_type,preferred_vendor')
+      let query = q.select('port_of_loading,port_of_discharge,direction,20gp,40gp_40hc,20re,40rh,cubic_rate,currency,mode,carrier,transit_time,service_type,preferred_vendor')
         .in('port_of_loading', polArray)
         .in('port_of_discharge', podArray)
         .ilike('direction', direction)
@@ -130,11 +131,6 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         .gte('valid_until', fromDate)
         .limit(200);
 
-      // Filter for preferred vendors only when recommended is selected
-      if (input.sortBy === 'recommended') {
-        query = query.not('preferred_vendor', 'is', null).neq('preferred_vendor', '');
-      }
-      
       if (input.mode) {
         query = query.ilike('mode', input.mode);
       }
@@ -182,11 +178,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         return;
       }
 
-      // Skip if recommended is selected and preferred_vendor is empty
-      if (input.sortBy === 'recommended' && (!r.preferred_vendor || r.preferred_vendor.trim() === '')) {
-        console.log(`Skipping ocean record - no preferred vendor: ${r.carrier}`);
-        return;
-      }
+      // For recommended: don't skip records without preferred_vendor, just use it for sorting priority
 
       // Create unique key including carrier, mode, service type, transit time, and DG status
       const uniqueKey = `${r.port_of_loading}→${r.port_of_discharge}|${r.carrier || 'N/A'}|${r.mode || 'N/A'}|${r.service_type || 'N/A'}|${r.transit_time || 'N/A'}|${r.dg || 'N/A'}`;
@@ -196,8 +188,18 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       if (!existing) {
         seenCombinations.set(uniqueKey, r);
       } else {
-        const existingRate = parseFloat(existing['20gp']) || parseFloat(existing['40gp_40hc']) || 0;
-        const currentRate = parseFloat(r['20gp']) || parseFloat(r['40gp_40hc']) || 0;
+        // For LCL, use cubic_rate; for FCL, use container rates
+        let existingRate = 0;
+        let currentRate = 0;
+
+        if (lclCbm > 0) {
+          existingRate = parseFloat(existing['cubic_rate']) || 0;
+          currentRate = parseFloat(r['cubic_rate']) || 0;
+        } else {
+          existingRate = parseFloat(existing['20gp']) || parseFloat(existing['40gp_40hc']) || 0;
+          currentRate = parseFloat(r['20gp']) || parseFloat(r['40gp_40hc']) || 0;
+        }
+
         if (currentRate > 0 && (existingRate === 0 || currentRate < existingRate)) {
           seenCombinations.set(uniqueKey, r);
         }
@@ -206,16 +208,29 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
     console.log(`Unique combinations found: ${seenCombinations.size}`);
 
-    // Sort combinations based on sortBy option
+    // Sort combinations based on sortBy option (for filtering to top 1 record)
     let sortedCombinations = Array.from(seenCombinations.values());
 
     if (input.sortBy === 'cheapest') {
-      // Sort by lowest rate (check all container types)
+      // Sort by lowest rate (check all container types and LCL)
       sortedCombinations.sort((a, b) => {
-        const rateA = parseFloat(a['20gp']) || parseFloat(a['40gp_40hc']) || parseFloat(a['20re']) || parseFloat(a['40rh']) || 0;
-        const rateB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || 0;
+        let rateA = 0;
+        let rateB = 0;
+
+        // For LCL shipments, only use cubic_rate
+        if (lclCbm > 0) {
+          rateA = parseFloat(a['cubic_rate']) || 0;
+          rateB = parseFloat(b['cubic_rate']) || 0;
+        } else {
+          // For FCL shipments, use container rates
+          rateA = parseFloat(a['20gp']) || parseFloat(a['40gp_40hc']) || parseFloat(a['20re']) || parseFloat(a['40rh']) || 0;
+          rateB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || 0;
+        }
+
         return rateA - rateB;
       });
+      // Only keep the top (cheapest) record
+      sortedCombinations = sortedCombinations.slice(0, 1);
     } else if (input.sortBy === 'fastest') {
       // Sort by lowest transit time
       sortedCombinations.sort((a, b) => {
@@ -223,11 +238,32 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         const transitB = parseInt(b.transit_time) || 999;
         return transitA - transitB;
       });
+      // Only keep the top (fastest) record
+      sortedCombinations = sortedCombinations.slice(0, 1);
     } else if (input.sortBy === 'recommended') {
-      // Recommended: balance of price and speed (weighted score)
+      // Recommended: prioritize preferred vendors, then balance of price and speed
       sortedCombinations.sort((a, b) => {
-        const rateA = parseFloat(a['20gp']) || parseFloat(a['40gp_40hc']) || parseFloat(a['20re']) || parseFloat(a['40rh']) || 0;
-        const rateB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || 0;
+        // First priority: preferred_vendor (non-empty should come first)
+        const hasPreferredA = a.preferred_vendor && a.preferred_vendor.trim() !== '';
+        const hasPreferredB = b.preferred_vendor && b.preferred_vendor.trim() !== '';
+
+        if (hasPreferredA && !hasPreferredB) return -1;
+        if (!hasPreferredA && hasPreferredB) return 1;
+
+        // Second priority: balance of price and speed (weighted score)
+        let rateA = 0;
+        let rateB = 0;
+
+        // For LCL shipments, only use cubic_rate
+        if (lclCbm > 0) {
+          rateA = parseFloat(a['cubic_rate']) || 0;
+          rateB = parseFloat(b['cubic_rate']) || 0;
+        } else {
+          // For FCL shipments, use container rates
+          rateA = parseFloat(a['20gp']) || parseFloat(a['40gp_40hc']) || parseFloat(a['20re']) || parseFloat(a['40rh']) || 0;
+          rateB = parseFloat(b['20gp']) || parseFloat(b['40gp_40hc']) || parseFloat(b['20re']) || parseFloat(b['40rh']) || 0;
+        }
+
         const transitA = parseInt(a.transit_time) || 30;
         const transitB = parseInt(b.transit_time) || 30;
 
@@ -243,7 +279,11 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
         return scoreA - scoreB;
       });
+      // Only keep the top (recommended) record
+      sortedCombinations = sortedCombinations.slice(0, 1);
     }
+
+    console.log(`Processing ${sortedCombinations.length} ocean freight record(s) after sorting`);
 
     // Second pass: process sorted combinations (always show extra info)
     sortedCombinations.forEach((r: any) => {
@@ -259,7 +299,9 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             qty: qty20,
             rate,
             total,
-            extra: extraInfo || undefined
+            extra: extraInfo || undefined,
+            transitTime: parseInt(r.transit_time) || 999,
+            preferredVendor: r.preferred_vendor || undefined
           });
         }
       }
@@ -276,7 +318,9 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             qty: qty40,
             rate,
             total,
-            extra: extraInfo || undefined
+            extra: extraInfo || undefined,
+            transitTime: parseInt(r.transit_time) || 999,
+            preferredVendor: r.preferred_vendor || undefined
           });
         }
       }
@@ -293,7 +337,9 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             qty: qty40HC,
             rate,
             total,
-            extra: extraInfo || undefined
+            extra: extraInfo || undefined,
+            transitTime: parseInt(r.transit_time) || 999,
+            preferredVendor: r.preferred_vendor || undefined
           });
         }
       }
@@ -310,7 +356,9 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             qty: qty20RE,
             rate,
             total,
-            extra: extraInfo || undefined
+            extra: extraInfo || undefined,
+            transitTime: parseInt(r.transit_time) || 999,
+            preferredVendor: r.preferred_vendor || undefined
           });
         }
       }
@@ -327,7 +375,9 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
             qty: qty40RH,
             rate,
             total,
-            extra: extraInfo || undefined
+            extra: extraInfo || undefined,
+            transitTime: parseInt(r.transit_time) || 999,
+            preferredVendor: r.preferred_vendor || undefined
           });
         }
       }
@@ -336,15 +386,18 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       if (lclCbm > 0) {
         const rate = parseFloat(r.cubic_rate) || 0;
         if (rate > 0) {
-          const total = rate * lclCbm;
+          const effectiveCbm = Math.max(lclCbm, 1);
+          const total = rate * effectiveCbm;
           const extraInfo = [r.mode, r.carrier, r.transit_time, r.service_type, r.dg && `DG: ${r.dg}`].filter(Boolean).join(' - ');
           oceanItems.push({
             label: `${r.port_of_loading} → ${r.port_of_discharge} (LCL${extraInfo ? ` - ${extraInfo}` : ''})`,
             unit: 'PER_CBM',
-            qty: lclCbm,
+            qty: effectiveCbm,
             rate,
             total,
-            extra: extraInfo || undefined
+            extra: extraInfo || undefined,
+            transitTime: parseInt(r.transit_time) || 999,
+            preferredVendor: r.preferred_vendor || undefined
           });
         }
       }
@@ -371,14 +424,15 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     const localPortFilter = localPortArray.length > 1
       ? ` AND UPPER("port_of_discharge") IN (${localPortArray.map(p => `UPPER('${p}')`).join(',')})`
       : ` AND UPPER("port_of_discharge") = UPPER('${localPortArray[0]}')`;
-    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","currency","effective_date","valid_until" FROM "local" WHERE UPPER("direction") = UPPER('${direction}')${localPortFilter} AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}' LIMIT 500`;
+    const localModeFilter = input.mode ? ` AND UPPER("mode") = UPPER('${input.mode}')` : '';
+    const localsQuery = `SELECT "port_of_discharge","direction","cw1_charge_code","charge_description","basis","20gp","40gp_40hc","per_shipment_charge","cubic_rate","minimum_rate_cbm","mandatory_or_if_applicable","currency","effective_date","valid_until" FROM "local" WHERE UPPER("direction") = UPPER('${direction}')${localPortFilter} AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${localModeFilter} LIMIT 500`;
     queries.push(localsQuery);
 
     console.log('=== LOCAL CHARGES QUERY ===');
     console.log('SQL:', localsQuery);
 
     const { data: locals } = await selectWithFallback(TABLE_KEYS.local, (q) => {
-      let base = q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,currency')
+      let base = q.select('port_of_discharge,direction,cw1_charge_code,charge_description,basis,20gp,40gp_40hc,per_shipment_charge,cubic_rate,minimum_rate_cbm,mandatory_or_if_applicable,currency,service_provider,mode')
         .ilike('direction', direction)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
@@ -393,6 +447,16 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         base = base.or(localPortArray.map(p => `port_of_discharge.ilike.${p}`).join(','));
       }
 
+      // Apply mode filter if specified
+      if (input.mode) {
+        base = base.ilike('mode', input.mode);
+      }
+
+      // Apply service provider (carrier) filter if specified
+      if (input.carrier) {
+        base = base.ilike('service_provider', input.carrier);
+      }
+
       return base;
     });
 
@@ -403,6 +467,11 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
     // Process local charges for each container type with validity date enforcement
     (locals ?? []).forEach((r: any) => {
+      // Skip "If Applicable" charges if the checkbox is not checked
+      if (r.mandatory_or_if_applicable === 'If Applicable' && !input.showIfApplicable) {
+        return;
+      }
+
       // Track actual ports returned
       if (r.port_of_discharge) {
         actualLocalPorts.add(r.port_of_discharge);
@@ -412,7 +481,7 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
       const validUntilDate = new Date(r.valid_until);
       const fromDateObj = new Date(fromDate);
       const toDateObj = new Date(toDate);
-      
+
       // Skip if record doesn't fall within the requested date range
       if (effectiveDate > toDateObj || validUntilDate < fromDateObj) {
         console.log(`Skipping local record due to date mismatch: ${r.effective_date} - ${r.valid_until}`);
@@ -513,13 +582,21 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
       // LCL charges (if cubic rate available)
       if (lclCbm > 0 && r.cubic_rate) {
-        const rate = parseFloat(r.cubic_rate) || 0;
-        if (rate > 0) {
-          const total = rate * lclCbm;
+        const cubicRate = parseFloat(r.cubic_rate) || 0;
+        if (cubicRate > 0) {
+          const calculatedTotal = cubicRate * lclCbm;
+          const minimumRate = parseFloat(r.minimum_rate_cbm) || 0;
+
+          // Use minimum rate if calculated total is lower than minimum
+          const total = minimumRate > 0 && calculatedTotal < minimumRate ? minimumRate : calculatedTotal;
+          const rate = minimumRate > 0 && calculatedTotal < minimumRate ? minimumRate : cubicRate;
+          const qty = minimumRate > 0 && calculatedTotal < minimumRate ? 1 : lclCbm;
+          const unit = minimumRate > 0 && calculatedTotal < minimumRate ? 'MINIMUM' : 'PER_CBM';
+
           localsItems.push({
             label: `${r.charge_description || 'Local Charge'}${portInfo} (LCL)`,
-            unit: 'PER_CBM',
-            qty: lclCbm,
+            unit,
+            qty,
             rate,
             total,
             extra: r.cw1_charge_code ?? undefined
@@ -549,9 +626,10 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
   try {
     const vehicleTypeFilter = input.vehicleType ? ` AND UPPER("vehicle_type") = UPPER('${input.vehicleType}')` : '';
     const transportVendorFilter = input.transportVendor ? ` AND UPPER("transport_vendor") = UPPER('${input.transportVendor}')` : '';
+    const transportModeFilter = input.mode ? ` AND UPPER("mode") = UPPER('${input.mode}')` : '';
     const transportQuery = direction === 'import'
-      ? `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("delivery_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter} LIMIT 200`
-      : `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("pick_up_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter} LIMIT 200`;
+      ? `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","cubic_rate","minimum_rate_cbm","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("delivery_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter}${transportModeFilter} LIMIT 200`
+      : `SELECT "pick_up_location","delivery_location","direction","vehicle_type","charge_description","20gp","40gp_40hc","cubic_rate","minimum_rate_cbm","currency","transport_vendor","tail_gate","side_loader_access_fees","container_unpack_rate_loose","container_unpack_rate_palletized","fumigation_bmsb","sideloader_same_day_collection","effective_date","valid_until" FROM "transport" WHERE UPPER("direction") = UPPER('${direction}') AND UPPER("pick_up_location") LIKE UPPER('%${suburb}%') AND UPPER("currency") = UPPER('AUD') AND "effective_date" <= '${toDate}' AND "valid_until" >= '${fromDate}'${vehicleTypeFilter}${transportVendorFilter}${transportModeFilter} LIMIT 200`;
     queries.push(transportQuery);
 
     console.log('=== TRANSPORT QUERY ===');
@@ -559,19 +637,31 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
 
     const { data: transport } = await selectWithFallback(TABLE_KEYS.transport, (q) => {
       let base = q
-        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized,fumigation_bmsb,sideloader_same_day_collection')
+        .select('pick_up_location,delivery_location,direction,vehicle_type,charge_description,20gp,40gp_40hc,cubic_rate,minimum_rate_cbm,currency,dg_surcharge,transport_vendor,drop_trailer,heavy_weight_surcharge,tail_gate,side_loader_access_fees,container_unpack_rate_loose,container_unpack_rate_palletized,fumigation_bmsb,sideloader_same_day_collection,port_of_discharge')
         .ilike('direction', direction)
         .eq('currency', 'AUD')
         .lte('effective_date', toDate)
         .gte('valid_until', fromDate)
         .limit(200);
 
+      // Apply port of discharge filter
+      const localPortArray = direction === 'import' ? podArray : polArray;
+      if (localPortArray.length === 1) {
+        base = base.ilike('port_of_discharge', localPortArray[0]);
+      } else if (localPortArray.length > 1) {
+        base = base.or(localPortArray.map(p => `port_of_discharge.ilike.${p}`).join(','));
+      }
+
       if (input.vehicleType) {
-        base = base.ilike('vehicle_type', input.vehicleType);
+        base = base.eq('vehicle_type', input.vehicleType);
       }
 
       if (input.transportVendor) {
-        base = base.ilike('transport_vendor', input.transportVendor);
+        base = base.eq('transport_vendor', input.transportVendor);
+      }
+
+      if (input.mode) {
+        base = base.eq('mode', input.mode);
       }
 
       return direction === 'import'
@@ -582,6 +672,12 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
     console.log('Transport Results:');
     console.log('- Row count:', transport?.length || 0);
     console.log('- Raw data:', transport);
+    if (transport && transport.length > 0) {
+      console.log('Transport Vendor Breakdown:');
+      transport.forEach((t: any, idx: number) => {
+        console.log(`  [${idx}] POD: "${t.port_of_discharge}", Transport Vendor: "${t.transport_vendor}", Charge: "${t.charge_description}", Location: "${t.delivery_location || t.pick_up_location}", Vehicle: "${t.vehicle_type}", 40HC Rate: ${t['40gp_40hc']}`);
+      });
+    }
     console.log('=======================');
 
     // Process transport charges for each container type with validity date enforcement
@@ -781,8 +877,24 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
         // Check if there's a cubic rate for LCL transport
         const cubicRate = parseFloat(r.cubic_rate) || 0;
         if (cubicRate > 0) {
-          const rate = cubicRate + dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge + fumigationCharge + sideloaderSamedayCharge;
-          const total = cubicRate * lclCbm;
+          const surchargeTotal = dgSurcharge + dropTrailerCharge + heavyWeightSurcharge + tailgateCharge + sideLoaderAccessFees + unpackLooseCharge + unpackPalletizedCharge + fumigationCharge + sideloaderSamedayCharge;
+          const calculatedTotal = (cubicRate * lclCbm) + surchargeTotal;
+          const minimumRate = parseFloat(r.minimum_rate_cbm) || 0;
+
+          // Use minimum rate if calculated total is lower than minimum
+          let total, rate, qty, unit;
+          if (minimumRate > 0 && calculatedTotal < minimumRate) {
+            total = minimumRate + surchargeTotal;
+            rate = minimumRate + surchargeTotal;
+            qty = 1;
+            unit = 'MINIMUM';
+          } else {
+            total = calculatedTotal;
+            rate = cubicRate + surchargeTotal;
+            qty = lclCbm;
+            unit = 'PER_CBM';
+          }
+
           const additionalCharges = [];
           if (dgSurcharge > 0) additionalCharges.push(`DG: ${dgSurcharge.toFixed(2)}`);
           if (dropTrailerCharge > 0) additionalCharges.push(`Drop Trailer: ${dropTrailerCharge.toFixed(2)}`);
@@ -796,8 +908,8 @@ export async function calculateThreeParts(input: CalcInput): Promise<CalcResult>
           const chargesNote = additionalCharges.length > 0 ? ` + ${additionalCharges.join(' + ')}` : '';
           delItems.push({
             label: `${baseLabel} (LCL${r.vehicle_type ? ` - ${r.vehicle_type}` : ''}${chargesNote})`,
-            unit: 'PER_CBM',
-            qty: lclCbm,
+            unit,
+            qty,
             rate,
             total,
             extra: r.vehicle_type ?? undefined
