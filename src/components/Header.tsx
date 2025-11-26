@@ -15,7 +15,7 @@ export default function Header() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img
-              src="/Logo Hellmann Worldwide Logistics RGB copy.png"
+              src="/Logo Hellmann Worldwide Logistics RGB.png"
               alt="Hellmann Worldwide Logistics"
               className="h-12 w-auto"
             />
